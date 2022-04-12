@@ -25,7 +25,8 @@ std::string getPathName(const std::string& filePath) {
     DWORD dir_path_size = path_size - (path_size - (file_name_start - buffer));
     std::string folder_name{buffer, dir_path_size};
 #else
-    char buffer[filePath.size()];
+    char buffer[filePath.size() + 1];
+    buffer[filePath.size()] = '\0';
     std::strcpy(buffer, filePath.c_str()); // copy the string because dirname(.) changes the input string!!!
     std::string folder_name{dirname(buffer)};
 #endif

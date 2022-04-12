@@ -1,13 +1,13 @@
 #Copyright (c) 2020 Ultimaker B.V.
-#CuraEngine is released under the terms of the AGPLv3 or higher.
+#LunarSlicer is released under the terms of the AGPLv3 or higher.
 
 cmake_minimum_required(VERSION 3.6.0)
 
-project(CuraEngine)
+project(LunarSlicer VERSION 1.0.0)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-option(ENABLE_ARCUS "Enable support for ARCUS" ON)
+option(ENABLE_ARCUS "Enable support for ARCUS" OFF)
 
 if (MSVC)
     option(MSVC_STATIC_RUNTIME "Link the MSVC runtime statically" OFF)
@@ -62,7 +62,7 @@ option(BUILD_TESTS OFF)
 
 # Add a compiler flag to check the output for insane values if we are in debug mode.
 if(CMAKE_BUILD_TYPE_UPPER MATCHES "DEBUG" OR CMAKE_BUILD_TYPE_UPPER MATCHES "RELWITHDEBINFO")
-    message(STATUS "Building debug release of CuraEngine.")
+    message(STATUS "Building debug release of LunarSlicer.")
     if (NOT MSVC)
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wextra -O0 -g -fno-omit-frame-pointer")
     endif()
@@ -263,27 +263,27 @@ if (ENABLE_ARCUS)
     protobuf_generate_cpp(engine_PB_SRCS engine_PB_HEADERS Cura.proto)
 endif ()
 
-# Compiling CuraEngine itself.
-add_library(_CuraEngine STATIC ${engine_SRCS} ${engine_PB_SRCS}) #First compile all of CuraEngine as library, allowing this to be re-used for tests.
+# Compiling LunarSlicer itself.
+add_library(_LunarSlicer STATIC ${engine_SRCS} ${engine_PB_SRCS}) #First compile all of LunarSlicer as library, allowing this to be re-used for tests.
 
 if (CuraEngine_Download_Stb)
-    add_dependencies(_CuraEngine stb)
+    add_dependencies(_LunarSlicer stb)
 endif()
 if(USE_SYSTEM_LIBS)
-    target_link_libraries(_CuraEngine ${Polyclipping_LIBRARIES})
+    target_link_libraries(_LunarSlicer ${Polyclipping_LIBRARIES})
 else()
-    target_link_libraries(_CuraEngine clipper)
+    target_link_libraries(_LunarSlicer clipper)
 endif()
 
 if (ENABLE_ARCUS)
-    target_link_libraries(_CuraEngine Arcus)
+    target_link_libraries(_LunarSlicer Arcus)
 endif ()
 
-set_target_properties(_CuraEngine PROPERTIES COMPILE_DEFINITIONS "VERSION=\"${CURA_ENGINE_VERSION}\"")
+set_target_properties(_LunarSlicer PROPERTIES COMPILE_DEFINITIONS "VERSION=\"${CURA_ENGINE_VERSION}\"")
 
 if(WIN32)
   message(STATUS "Using windres")
-  set(RES_FILES "CuraEngine.rc")
+#  set(RES_FILES "LunarSlicer.rc")
   ENABLE_LANGUAGE(RC)
   if(NOT MSVC)
     SET(CMAKE_RC_COMPILER_INIT windres)
@@ -294,17 +294,17 @@ if(WIN32)
 endif(WIN32)
 
 if (UNIX)
-    target_link_libraries(_CuraEngine pthread)
+    target_link_libraries(_LunarSlicer pthread)
 endif()
 
 if (NOT WIN32)
-  add_executable(CuraEngine src/main.cpp) # Then compile main.cpp as separate executable, and link the library to it.
+  add_executable(LunarSlicer src/main.cpp) # Then compile main.cpp as separate executable, and link the library to it.
 else()
-  add_executable(CuraEngine src/main.cpp ${RES_FILES}) # ..., but don't forget the glitter!
+  add_executable(LunarSlicer src/main.cpp ${RES_FILES}) # ..., but don't forget the glitter!
 endif(NOT WIN32)
 
-target_link_libraries(CuraEngine _CuraEngine)
-set_target_properties(CuraEngine PROPERTIES COMPILE_DEFINITIONS "VERSION=\"${CURA_ENGINE_VERSION}\"")
+target_link_libraries(LunarSlicer _LunarSlicer)
+set_target_properties(LunarSlicer PROPERTIES COMPILE_DEFINITIONS "VERSION=\"${CURA_ENGINE_VERSION}\"")
 
 # Compiling the test environment.
 if (BUILD_TESTS)
@@ -317,10 +317,10 @@ if (BUILD_TESTS)
     find_package(GMock REQUIRED)
     include_directories(${GTEST_INCLUDE_DIRS})
     include_directories(${GMOCK_INCLUDE_DIRS})
-    add_dependencies(_CuraEngine GTest::GTest GTest::Main GMock::GMock GMock::Main)
+    add_dependencies(_LunarSlicer GTest::GTest GTest::Main GMock::GMock GMock::Main)
     add_definitions(-DBUILD_TESTS)
 
-    target_compile_definitions(_CuraEngine PUBLIC BUILD_TESTS=1)
+    target_compile_definitions(_LunarSlicer PUBLIC BUILD_TESTS=1)
 
     #To make sure that the tests are built before running them, add the building of these tests as an additional test.
     add_custom_target(build_all_tests)
@@ -328,47 +328,47 @@ if (BUILD_TESTS)
 
     foreach (test ${engine_TEST})
         add_executable(${test} tests/main.cpp ${engine_TEST_HELPERS} tests/${test}.cpp)
-        target_link_libraries(${test} _CuraEngine ${GTEST_BOTH_LIBRARIES} ${GMOCK_BOTH_LIBRARIES})
+        target_link_libraries(${test} _LunarSlicer ${GTEST_BOTH_LIBRARIES} ${GMOCK_BOTH_LIBRARIES})
         add_test(NAME ${test} COMMAND "${test}" WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/tests/")
         add_dependencies(build_all_tests ${test}) #Make sure that this gets built as part of the build_all_tests target.
     endforeach()
     foreach (test ${engine_TEST_INFILL})
         add_executable(${test} tests/main.cpp tests/infill/${test}.cpp)
-        target_link_libraries(${test} _CuraEngine ${GTEST_BOTH_LIBRARIES} ${GMOCK_BOTH_LIBRARIES})
+        target_link_libraries(${test} _LunarSlicer ${GTEST_BOTH_LIBRARIES} ${GMOCK_BOTH_LIBRARIES})
         add_test(NAME ${test} COMMAND "${test}" WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/tests/")
         add_dependencies(build_all_tests ${test}) #Make sure that this gets built as part of the build_all_tests target.
     endforeach()
     foreach (test ${engine_TEST_INTEGRATION})
         add_executable(${test} tests/main.cpp tests/integration/${test}.cpp)
-        target_link_libraries(${test} _CuraEngine ${GTEST_BOTH_LIBRARIES} ${GMOCK_BOTH_LIBRARIES})
+        target_link_libraries(${test} _LunarSlicer ${GTEST_BOTH_LIBRARIES} ${GMOCK_BOTH_LIBRARIES})
         add_test(NAME ${test} COMMAND "${test}" WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/tests/")
         add_dependencies(build_all_tests ${test}) #Make sure that this gets built as part of the build_all_tests target.
     endforeach()
     foreach (test ${engine_TEST_SETTINGS})
         add_executable(${test} tests/main.cpp tests/settings/${test}.cpp)
-        target_link_libraries(${test} _CuraEngine ${GTEST_BOTH_LIBRARIES} ${GMOCK_BOTH_LIBRARIES})
+        target_link_libraries(${test} _LunarSlicer ${GTEST_BOTH_LIBRARIES} ${GMOCK_BOTH_LIBRARIES})
         add_test(NAME ${test} COMMAND "${test}" WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/tests/")
         add_dependencies(build_all_tests ${test}) #Make sure that this gets built as part of the build_all_tests target.
     endforeach()
     if (ENABLE_ARCUS)
         foreach (test ${engine_TEST_ARCUS})
             add_executable(${test} tests/main.cpp ${engine_TEST_ARCUS_HELPERS} tests/arcus/${test}.cpp)
-            target_link_libraries(${test} _CuraEngine ${GTEST_BOTH_LIBRARIES} ${GMOCK_BOTH_LIBRARIES})
+            target_link_libraries(${test} _LunarSlicer ${GTEST_BOTH_LIBRARIES} ${GMOCK_BOTH_LIBRARIES})
             add_test(NAME ${test} COMMAND "${test}" WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/tests/")
             add_dependencies(build_all_tests ${test}) #Make sure that this gets built as part of the build_all_tests target.
         endforeach()
     endif ()
     foreach (test ${engine_TEST_UTILS})
         add_executable(${test} tests/main.cpp tests/utils/${test}.cpp)
-        target_link_libraries(${test} _CuraEngine ${GTEST_BOTH_LIBRARIES} ${GMOCK_BOTH_LIBRARIES})
+        target_link_libraries(${test} _LunarSlicer ${GTEST_BOTH_LIBRARIES} ${GMOCK_BOTH_LIBRARIES})
         add_test(NAME ${test} COMMAND "${test}" WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/tests/")
         add_dependencies(build_all_tests ${test}) #Make sure that this gets built as part of the build_all_tests target.
     endforeach()
 endif()
 
-# Installing CuraEngine.
+# Installing LunarSlicer.
 include(GNUInstallDirs)
-install(TARGETS CuraEngine DESTINATION "${CMAKE_INSTALL_BINDIR}")
+install(TARGETS LunarSlicer DESTINATION "${CMAKE_INSTALL_BINDIR}")
 # For MinGW64 cross compiling on Debian, we create a ZIP package instead of a DEB
 # Because it's the Windows build system that should install the files.
 if (CMAKE_CROSSCOMPILING AND CMAKE_SYSTEM_NAME MATCHES "Windows")

@@ -68,12 +68,12 @@ public:
     };
 
 private:
-    Velocity max_feedrate[NUM_AXIS] = {600, 600, 40, 25}; // mm/s
-    Velocity minimumfeedrate = 0.01;
-    Acceleration acceleration = 3000;
-    Acceleration max_acceleration[NUM_AXIS] = {9000, 9000, 100, 10000};
-    Velocity max_xy_jerk = 20.0;
-    Velocity max_z_jerk = 0.4;
+    Velocity max_feedrate[NUM_AXIS] = {120, 120, 40, 25}; // mm/s
+    Velocity minimumfeedrate = 0.05;
+    Acceleration acceleration = 1000;
+    Acceleration max_acceleration[NUM_AXIS] = {3000, 3000, 100, 10000};
+    Velocity max_xy_jerk = 10.0;
+    Velocity max_z_jerk = 0.3;
     Velocity max_e_jerk = 5.0;
     Duration extra_time = 0.0;
     
