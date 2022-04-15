@@ -55,6 +55,10 @@ public:
      */
     void printHelp() const;
 
+    void printPTest() const;
+
+    void printVersion() const;
+
     /*!
      * \brief Starts the application.
      *
