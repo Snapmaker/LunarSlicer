@@ -71,6 +71,12 @@ public:
      */
     void processMeshGroup(MeshGroup& mesh_group);
 
+    /*
+     * \brief Generate the 3D model support from mesh group.
+     * \param mesh_group The mesh group.
+     */
+    void processMeshGroupSupport(MeshGroup& mesh_group);
+
 private:
     /*
      * \brief You are not allowed to copy the scene.

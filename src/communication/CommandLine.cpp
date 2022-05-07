@@ -95,7 +95,7 @@ void CommandLine::sliceNext()
             num_mesh_groups++;
         }
     }
-    Slice slice(num_mesh_groups);
+    Slice slice(arguments[1], num_mesh_groups);
 
     Application::getInstance().current_slice = &slice;
 
@@ -236,11 +236,7 @@ void CommandLine::sliceNext()
                             exit(1);
                         }
                         argument = arguments[argument_index];
-                        if (!FffProcessor::getInstance()->setTargetFile(argument.c_str()))
-                        {
-                            logError("Failed to open %s for output.\n", argument.c_str());
-                            exit(1);
-                        }
+                        slice.scene.settings.add("output_path", argument);
                         break;
                     }
                     case 'g':
@@ -314,7 +310,6 @@ void CommandLine::sliceNext()
 #endif //DEBUG
 
     //Finalize the processor. This adds the end g-code and reports statistics.
-    FffProcessor::getInstance()->finalize();
 }
 
 int CommandLine::loadJSON(const std::string& json_filename, Settings& settings)

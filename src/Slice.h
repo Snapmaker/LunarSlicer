@@ -23,6 +23,10 @@ public:
      */
     Slice(const size_t num_mesh_groups);
 
+    Slice(std::string cmd, const size_t num_mesh_groups);
+
+    std::string cmd;
+
     /*
      * \brief The scene that must be sliced.
      */

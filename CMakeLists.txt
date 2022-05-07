@@ -112,19 +112,14 @@ endif()
 option (ENABLE_OPENMP
     "Use OpenMP for parallel code" ON)
 
-if (ENABLE_OPENMP)
-    FIND_PACKAGE( OpenMP )
-    if( OPENMP_FOUND )
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}" )
-    endif()
-endif()
-
 if(USE_SYSTEM_LIBS)
     include_directories(${Polyclipping_INCLUDE_DIRS} "${CMAKE_BINARY_DIR}" ${RAPIDJSON_INCLUDE_DIRS})
 else()
     include_directories("${CMAKE_CURRENT_BINARY_DIR}" libs libs/clipper)
     add_library(clipper STATIC libs/clipper/clipper.cpp)
 endif()
+
+include_directories("${CMAKE_CURRENT_BINARY_DIR}" libs/earcut)
 
 set(engine_SRCS # Except main.cpp.
     src/Application.cpp
@@ -134,6 +129,7 @@ set(engine_SRCS # Except main.cpp.
     src/FffGcodeWriter.cpp
     src/FffPolygonGenerator.cpp
     src/FffProcessor.cpp
+    src/FffSupportGenerator.cpp
     src/gcodeExport.cpp
     src/GCodePathConfig.cpp
     src/infill.cpp
@@ -265,6 +261,15 @@ endif ()
 
 # Compiling LunarSlicer itself.
 add_library(_LunarSlicer STATIC ${engine_SRCS} ${engine_PB_SRCS}) #First compile all of LunarSlicer as library, allowing this to be re-used for tests.
+
+if (ENABLE_OPENMP)
+    FIND_PACKAGE( OpenMP )
+    if( OPENMP_FOUND )
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}" )
+        target_include_directories(_LunarSlicer PUBLIC ${OpenMP_CXX_INCLUDE_DIRS})
+        target_link_libraries(_LunarSlicer ${OpenMP_libomp_LIBRARY})
+    endif()
+endif()
 
 if (CuraEngine_Download_Stb)
     add_dependencies(_LunarSlicer stb)

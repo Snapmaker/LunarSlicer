@@ -10,6 +10,7 @@
 #include "communication/Communication.h" //To flush g-code and layer view when we're done.
 #include "progress/Progress.h"
 #include "utils/logoutput.h"
+#include "MeshGroup.h"
 
 namespace cura
 {
@@ -67,6 +68,12 @@ void Scene::processMeshGroup(MeshGroup& mesh_group)
     FffProcessor* fff_processor = FffProcessor::getInstance();
     fff_processor->time_keeper.restart();
 
+    if (!FffProcessor::getInstance()->setTargetFile(mesh_group.settings.get<std::string>("output_path").c_str()))
+    {
+        logError("Failed to open %s for output.\n", mesh_group.settings.get<std::string>("output").c_str());
+        exit(1);
+    }
+
     TimeKeeper time_keeper_total;
 
     bool empty = true;
@@ -91,7 +98,7 @@ void Scene::processMeshGroup(MeshGroup& mesh_group)
 
         Weaver weaver;
         weaver.weave(&mesh_group);
-        
+
         log("Starting Neith Gcode generation...\n");
         Wireframe2gcode gcoder(weaver, fff_processor->gcode_writer.gcode);
         gcoder.writeGCode();
@@ -105,7 +112,7 @@ void Scene::processMeshGroup(MeshGroup& mesh_group)
         {
             return;
         }
-        
+
         Progress::messageProgressStage(Progress::Stage::EXPORT, &fff_processor->time_keeper);
         fff_processor->gcode_writer.writeGCode(storage, fff_processor->time_keeper);
     }
@@ -114,6 +121,58 @@ void Scene::processMeshGroup(MeshGroup& mesh_group)
     Application::getInstance().communication->flushGCode();
     Application::getInstance().communication->sendOptimizedLayerData();
     log("Total time elapsed %5.2fs.\n", time_keeper_total.restart());
+
+    FffProcessor::getInstance()->finalize();
+}
+
+void Scene::processMeshGroupSupport(MeshGroup& mesh_group)
+{
+    FffProcessor* fff_processor = FffProcessor::getInstance();
+    fff_processor->time_keeper.restart();
+
+    TimeKeeper time_keeper_total;
+
+    bool empty = true;
+    for (Mesh& mesh : mesh_group.meshes)
+    {
+        if (!mesh.settings.get<bool>("infill_mesh") && !mesh.settings.get<bool>("anti_overhang_mesh"))
+        {
+            empty = false;
+            break;
+        }
+    }
+    if (empty)
+    {
+        Progress::messageProgress(Progress::Stage::FINISH, 1, 1); // 100% on this meshgroup
+        log("Total time elapsed %5.2fs.\n", time_keeper_total.restart());
+        return;
+    }
+
+    if (settings.get<bool>("support_generate_simple"))
+    {
+        SupportDataStorage storage;
+        fff_processor-> support_generator.generateSupport(storage, &mesh_group, fff_processor->time_keeper);
+
+        auto output_path = mesh_group.settings.get<std::string>("output_path");
+
+        saveMeshSTL(&storage.support_mesh, output_path.c_str(),true);
+    }
+    else
+    {
+        SliceDataStorage storage;
+        if (!fff_processor->polygon_generator.generateAreas(storage, &mesh_group, fff_processor->time_keeper))
+        {
+            return;
+        }
+
+        Progress::messageProgressStage(Progress::Stage::EXPORT, &fff_processor->time_keeper);
+        fff_processor->gcode_writer.writeGCode(storage, fff_processor->time_keeper);
+
+        Progress::messageProgress(Progress::Stage::FINISH, 1, 1); // 100% on this meshgroup
+        Application::getInstance().communication->flushGCode();
+        Application::getInstance().communication->sendOptimizedLayerData();
+        log("Total time elapsed %5.2fs.\n", time_keeper_total.restart());
+    }
 }
 
 } //namespace cura

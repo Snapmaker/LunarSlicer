@@ -51,6 +51,7 @@ class MeshFace
 public:
     int vertex_index[3] = {-1}; //!< counter-clockwise ordering
     int connected_face_index[3]; //!< same ordering as vertex_index (connected_face 0 is connected via vertex 0 and 1, etc.)
+    int support_flag = 0; //!< support_flag (1: support face)
 };
 
 
@@ -73,7 +74,7 @@ public:
     Mesh(Settings& parent);
     Mesh();
 
-    void addFace(Point3& v0, Point3& v1, Point3& v2); //!< add a face to the mesh without settings it's connected_faces.
+    void addFace(Point3& v0, Point3& v1, Point3& v2, int flag = 0); //!< add a face to the mesh without settings it's connected_faces.
     void clear(); //!< clears all data
     void finish(); //!< complete the model : set the connected_face_index fields of the faces.
 

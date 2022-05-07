@@ -52,6 +52,8 @@ public:
  */
 bool loadMeshIntoMeshGroup(MeshGroup* meshgroup, const char* filename, const FMatrix4x3& transformation, Settings& object_parent_settings);
 
+bool saveMeshSTL(Mesh* mesh, const char* filename, bool binary);
+
 } //namespace cura
 
 #endif //MESH_GROUP_H
