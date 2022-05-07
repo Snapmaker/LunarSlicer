@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <limits>
+#include <fstream>
 
 #include "MeshGroup.h"
 #include "settings/types/Ratio.h" //For the shrinkage percentage and scale factor.
@@ -201,7 +202,9 @@ bool loadMeshSTL_binary(Mesh* mesh, const char* filename, const FMatrix4x3& matr
         Point3 v0 = matrix.apply(FPoint3(v[0], v[1], v[2]));
         Point3 v1 = matrix.apply(FPoint3(v[3], v[4], v[5]));
         Point3 v2 = matrix.apply(FPoint3(v[6], v[7], v[8]));
-        mesh->addFace(v0, v1, v2);
+
+        short *flag = ((short *) (buffer + 48));
+        mesh->addFace(v0, v1, v2, flag[0]);
     }
     fclose(f);
     mesh->finish();
@@ -281,6 +284,116 @@ bool loadMeshIntoMeshGroup(MeshGroup* meshgroup, const char* filename, const FMa
         }
     }
     return false;
+}
+
+
+bool saveFacesSTLBinary(Mesh* mesh, const char *filename)
+{
+    FILE* f = fopen(filename, "wb");
+
+    unsigned char buffer[80] = { '0' };
+    // Skip the header
+    if (fwrite(buffer, 80, 1, f) != 1)
+    {
+        fclose(f);
+        return false;
+    }
+
+    uint32_t face_count = mesh->faces.size();
+    // Read the face count. We'll use it as a sort of redundancy code to check for file corruption.
+    if (fwrite(&face_count, sizeof(uint32_t), 1, f) != 1)
+    {
+        fclose(f);
+        return false;
+    }
+
+    float p[12];
+
+    for (int i = 0; i < mesh->faces.size(); i += 3)
+    {
+        auto& face = mesh->faces[i];
+        FPoint3 va = FPoint3(mesh->vertices[face.vertex_index[0]].p);
+        FPoint3 vb = FPoint3(mesh->vertices[face.vertex_index[1]].p);
+        FPoint3 vc = FPoint3(mesh->vertices[face.vertex_index[2]].p);
+
+        auto cb = vc - vb;
+        auto ab = va - vb;
+        auto normal = cb.cross(ab).normalized();
+
+        p[0] = normal.x;
+        p[1] = normal.y;
+        p[2] = normal.z;
+        p[3] = va.x;
+        p[4] = va.y;
+        p[5] = va.z;
+        p[6] = vb.x;
+        p[7] = vb.y;
+        p[8] = vb.z;
+        p[9] = vc.x;
+        p[10] = vc.y;
+        p[11] = vc.z;
+
+        auto* input = (unsigned char*)p;
+
+        for (int j = 0; j < 12; ++j)
+        {
+            buffer[j * 4] = input[j * 4];
+            buffer[j * 4 + 1] = input[j * 4 + 1];
+            buffer[j * 4 + 2] = input[j * 4 + 2];
+            buffer[j * 4 + 3] = input[j * 4 + 3];
+        }
+
+        fwrite(buffer, 50, 1, f);
+    }
+
+    fclose(f);
+    return true;
+}
+
+
+bool saveFacesSTLAscii(Mesh* mesh, const char *filename) {
+    std::ofstream ofstream;
+    ofstream.open(filename);
+
+    if (!ofstream.is_open()) {
+        return false;
+    }
+
+    ofstream << "solid exported\n";
+
+    for (int i = 0; i < mesh->faces.size(); i += 3) {
+        auto& face = mesh->faces[i];
+        FPoint3 va = FPoint3(mesh->vertices[face.vertex_index[0]].p);
+        FPoint3 vb = FPoint3(mesh->vertices[face.vertex_index[1]].p);
+        FPoint3 vc = FPoint3(mesh->vertices[face.vertex_index[2]].p);
+
+        auto cb = vc - vb;
+        auto ab = va - vb;
+        auto normal = cb.cross(ab).normalized();
+
+        ofstream << "\tfacet normal " << normal.x << " " << normal.y << " " << normal.z << "\n";
+        ofstream << "\t\touter loop\n";
+
+        ofstream << "\t\t\tvertex " << va.x << " " << va.y << " " << va.z << "\n";
+        ofstream << "\t\t\tvertex " << vb.x << " " << vb.y << " " << vb.z << "\n";
+        ofstream << "\t\t\tvertex " << vc.x << " " << vc.y << " " << vc.z << "\n";
+
+        ofstream << "\t\tendloop\n";
+        ofstream << "\tendfacet\n";
+    }
+
+    ofstream << "endsolid exported";
+
+    ofstream.flush();
+    ofstream.close();
+    return true;
+}
+
+bool saveMeshSTL(Mesh* mesh, const char* filename, bool binary) {
+    if (mesh->vertices.empty() || mesh->faces.empty()) {
+        return false;
+    }
+    return binary ? saveFacesSTLBinary(mesh, filename) : saveFacesSTLAscii(mesh, filename);
 }
 
 }//namespace cura

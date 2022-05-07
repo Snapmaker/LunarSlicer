@@ -90,6 +90,13 @@ protected:
      */
     void slice();
 
+    /*!
+     * \brief Start generate support.
+     * \param argc The number of arguments provided to the application.
+     * \param argv The arguments provided to the application.
+     */
+    void support();
+
 private:
     /*
      * \brief The number of arguments that the application was called with.

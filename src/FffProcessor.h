@@ -6,6 +6,7 @@
 
 #include "FffGcodeWriter.h"
 #include "FffPolygonGenerator.h"
+#include "FffSupportGenerator.h"
 #include "utils/gettime.h"
 #include "utils/NoCopy.h"
 
@@ -42,6 +43,8 @@ public:
      * The polygon generator, which slices the models and generates all polygons to be printed and areas to be filled.
      */
     FffPolygonGenerator polygon_generator;
+
+    FffSupportGenerator support_generator;
 
     /*!
      * The stop watch used to time how long the different stages take to compute.

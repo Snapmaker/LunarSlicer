@@ -167,6 +167,18 @@ void Application::slice()
     communication = new CommandLine(arguments);
 }
 
+
+void Application::support()
+{
+    std::vector<std::string> arguments;
+    for (size_t argument_index = 0; argument_index < argc; argument_index++)
+    {
+      arguments.emplace_back(argv[argument_index]);
+    }
+
+    communication = new CommandLine(arguments);
+}
+
 void Application::run(const size_t argc, char** argv)
 {
     this->argc = argc;
@@ -201,6 +213,10 @@ void Application::run(const size_t argc, char** argv)
     else
 #endif //ARCUS
     if (stringcasecompare(argv[1], "slice") == 0)
+    {
+        slice();
+    }
+    else if (stringcasecompare(argv[1], "modelsupport") == 0)
     {
         slice();
     }
