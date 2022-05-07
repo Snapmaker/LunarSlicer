@@ -136,6 +136,21 @@ void Application::printHelp() const
     logAlways("\n");
 }
 
+void Application::printPTest() const
+{
+#pragma omp parallel for
+    for (int kI = 0; kI < 10; ++kI)
+    {
+      std::cout<<kI<<std::endl;
+    }
+}
+
+void Application::printVersion() const
+{
+  logAlways("\n");
+  logAlways("Luban_Engine version %s\n", VERSION);
+}
+
 void Application::printLicense() const
 {
     logAlways("\n");
@@ -219,6 +234,14 @@ void Application::run(const size_t argc, char** argv)
     else if (stringcasecompare(argv[1], "modelsupport") == 0)
     {
         slice();
+    }
+    else if (stringcasecompare(argv[1], "ptest") == 0)
+    {
+        printPTest();
+    }
+    else if (stringcasecompare(argv[1], "version") ==0)
+    {
+        printVersion();
     }
     else if (stringcasecompare(argv[1], "help") == 0)
     {

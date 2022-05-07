@@ -1,4 +1,5 @@
 #include "FffSupportGenerator.h"
+#include <algorithm>
 
 namespace cura {
 

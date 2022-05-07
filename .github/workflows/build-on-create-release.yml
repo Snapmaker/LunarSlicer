@@ -1,0 +1,159 @@
+name: Build on Release created
+
+on:
+  release:
+    types:
+      - created
+#on: push
+
+jobs:
+  build-macos:
+    name: Build macOS Packages
+
+    #macos-10.15
+    runs-on: macos-10.15
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.MY_TOKEN }}
+          submodules: 'recursive'
+
+      - run: brew install libomp
+      - run: mkdir build && mkdir output
+      - run: cmake -DCMAKE_BUILD_TYPE=Release -G "CodeBlocks - Unix Makefiles" -S ./ -B build
+      - run: cmake --build ./build --target LunarSlicer -- -j 12
+      - run: ./build/LunarSlicer version
+      - run: ./build/LunarSlicer ptest
+      - run: cp ./build/LunarSlicer ./output/LunarSlicer
+
+      - name: import apple code-signing
+        uses: apple-actions/import-codesign-certs@v1
+        with:
+          p12-file-base64: ${{ secrets.CERTIFICATES_P12 }}
+          p12-password: ${{ secrets.CERTIFICATES_P12_PASSWORD }}
+
+      - run: codesign -s ${{ secrets.CERTIFICATES_NAME }} ./output/LunarSlicer
+
+      - name: Zip output
+        uses: thedoctor0/zip-release@master
+        with:
+          type: zip
+          filename: LunarSlicer-mac.zip
+          directory: ./
+          path: ./output
+
+      - name: Upload Release Asset - Linux Binary file
+        id: upload-release-asset-linux-binary
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: LunarSlicer-mac.zip
+          asset_name: LunarSlicer-mac.zip
+          asset_content_type: application/octet-stream
+
+  build-windows:
+    name: Build Windows packages
+
+    # windows-2019
+    runs-on: windows-2019
+    #    defaults:
+    #      run:
+    #        shell: msys2 {0}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.MY_TOKEN }}
+          submodules: 'recursive'
+
+      #      - name: Setup MSYS2
+      #        uses: msys2/setup-msys2@v2
+      #        with:
+      #          msystem: MINGW64
+      #          install: >-
+      #            mingw-w64-x86_64-gcc
+      #            mingw-w64-x86_64-cmake
+      #            mingw-w64-x86_64-make
+      #            mingw-w64-x86_64-libjpeg-turbo
+      #            mingw-w64-x86_64-libpng
+      #            mingw-w64-x86_64-boost
+
+      - run: mkdir build && mkdir output
+      - run: cmake -DCMAKE_BUILD_TYPE=Release -G "CodeBlocks - MinGW Makefiles" -S ./ -B build
+      - run: cmake --build ./build --target LunarSlicer -- -j 12
+      - run: ./build/LunarSlicer.exe version && ./build/LunarSlicer.exe ptest
+      - run: cp ./build/LunarSlicer.exe ./output/LunarSlicer.exe
+
+      - name: import window code-signing
+        uses: GabrielAcostaEngler/signtool-code-sign@main
+        with:
+          certificate: ${{ secrets.CERTIFICATES_P12_WINDOW }}
+          cert-password: ${{ secrets.CERTIFICATES_P12_PASSWORD_WINDOW }}
+          cert-sha1: ${{ secrets.CERTIFICATES_P12_WINDOW_SHA1 }}
+          folder: 'output'
+          recursive: true
+          timestamp-server: 'http://timestamp.digicert.com'
+
+#      - run: cp -r ./build/dlls/* ./output/
+
+      - name: Zip output
+        uses: thedoctor0/zip-release@master
+        with:
+          type: zip
+          filename: LunarSlicer-win64.zip
+          directory: ./
+          path: ./output
+
+      - name: Upload Release Asset - Windows x64 Binary file
+        id: upload-release-asset-win-x64-binary
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./LunarSlicer-win64.zip
+          asset_name: LunarSlicer-win64.zip
+          asset_content_type: application/octet-stream
+
+
+  build-ubuntu:
+    name: Build Ubuntu packages
+
+    # windows-2019
+    runs-on: ubuntu-20.04
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
+
+      - run: brew install boost
+
+      - run: mkdir build && mkdir output
+      - run: cmake -DCMAKE_BUILD_TYPE=Release -G "CodeBlocks - Unix Makefiles" -S ./ -B build
+      - run: cmake --build ./build --target LunarSlicer -- -j 12
+      - run: ./build/LunarSlicer version
+      - run: ./build/LunarSlicer ptest
+      - run: cp ./build/LunarSlicer ./output/LunarSlicer
+
+      - name: Zip output
+        uses: thedoctor0/zip-release@master
+        with:
+          type: zip
+          filename: LunarSlicer-linux.zip
+          directory: ./
+          path: ./output
+
+      - name: Upload Release Asset - Linux Binary file
+        id: upload-release-asset-linux-binary
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: LunarSlicer-linux.zip
+          asset_name: LunarSlicer-linux.zip
+          asset_content_type: application/octet-stream
