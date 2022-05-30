@@ -32,7 +32,7 @@ void Slice::compute()
           }
           scene.processMeshGroup(*mesh_group);
         }
-    } else if (this->cmd == "modelsupport")
+    } else if (this->cmd == "support")
     {
         for (std::vector<MeshGroup>::iterator mesh_group = scene.mesh_groups.begin(); mesh_group != scene.mesh_groups.end(); mesh_group++)
         {

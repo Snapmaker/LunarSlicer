@@ -231,7 +231,7 @@ void Application::run(const size_t argc, char** argv)
     {
         slice();
     }
-    else if (stringcasecompare(argv[1], "modelsupport") == 0)
+    else if (stringcasecompare(argv[1], "support") == 0)
     {
         slice();
     }
