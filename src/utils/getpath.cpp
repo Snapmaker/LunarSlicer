@@ -1,3 +1,6 @@
+//Copyright (c) 2020 Ultimaker B.V.
+//CuraEngine is released under the terms of the AGPLv3 or higher.
+
 #include "getpath.h"
 
 #include <iostream>
@@ -25,8 +28,7 @@ std::string getPathName(const std::string& filePath) {
     DWORD dir_path_size = path_size - (path_size - (file_name_start - buffer));
     std::string folder_name{buffer, dir_path_size};
 #else
-    char buffer[filePath.size() + 1];
-    buffer[filePath.size()] = '\0';
+    char buffer[filePath.size()];
     std::strcpy(buffer, filePath.c_str()); // copy the string because dirname(.) changes the input string!!!
     std::string folder_name{dirname(buffer)};
 #endif

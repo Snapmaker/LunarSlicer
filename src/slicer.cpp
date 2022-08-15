@@ -1,4 +1,4 @@
-//Copyright (c) 2020 Ultimaker B.V.
+//Copyright (c) 2022 Ultimaker B.V.
 //CuraEngine is released under the terms of the AGPLv3 or higher.
 
 #include <stdio.h>
@@ -11,7 +11,9 @@
 #include "settings/EnumSettings.h"
 #include "settings/types/LayerIndex.h"
 #include "utils/gettime.h"
+#include "utils/ThreadPool.h"
 #include "utils/logoutput.h"
+#include "utils/Simplify.h"
 #include "utils/SparsePointGridInclusive.h"
 
 
@@ -723,7 +725,7 @@ ClosePolygonResult SlicerLayer::findPolygonPointClosestTo(Point input)
                 if (distOnLine >= 0 && distOnLine <= lineLength)
                 {
                     Point q = p0 + pDiff * distOnLine / lineLength;
-                    if (shorterThen(q - input, 100))
+                    if (shorterThen(q - input, MM2INT(0.1)))
                     {
                         ret.polygonIdx = n;
                         ret.pointIdx = i;
@@ -781,11 +783,15 @@ void SlicerLayer::makePolygons(const Mesh* mesh)
     polygons.erase(it, polygons.end());
 
     //Finally optimize all the polygons. Every point removed saves time in the long run.
-    const coord_t line_segment_resolution = mesh->settings.get<coord_t>("meshfix_maximum_resolution");
-    const coord_t line_segment_deviation = mesh->settings.get<coord_t>("meshfix_maximum_deviation");
-    polygons.simplify(line_segment_resolution, line_segment_deviation);
+    polygons = Simplify(mesh->settings).polygon(polygons);
 
     polygons.removeDegenerateVerts(); // remove verts connected to overlapping line segments
+
+    // Clean up polylines for Surface Mode printing
+    it = std::remove_if(openPolylines.begin(), openPolylines.end(), [snap_distance](PolygonRef poly) { return poly.shorterThan(snap_distance); });
+    openPolylines.erase(it, openPolylines.end());
+
+    openPolylines.removeDegenerateVertsPolyline();
 }
 
 Slicer::Slicer(Mesh* i_mesh, const coord_t thickness, const size_t slice_layer_count,
@@ -807,8 +813,7 @@ Slicer::Slicer(Mesh* i_mesh, const coord_t thickness, const size_t slice_layer_c
 
     std::vector<std::pair<int32_t, int32_t>> zbbox = buildZHeightsForFaces(*mesh);
 
-
-    buildSegments(*mesh, zbbox, layers);
+    buildSegments(*mesh, zbbox, slicing_tolerance, layers);
 
     log("slice of mesh took %.3f seconds\n", slice_timer.restart());
 
@@ -816,22 +821,27 @@ Slicer::Slicer(Mesh* i_mesh, const coord_t thickness, const size_t slice_layer_c
     log("slice make polygons took %.3f seconds\n", slice_timer.restart());
 }
 
-void Slicer::buildSegments(const Mesh& mesh, const std::vector<std::pair<int32_t, int32_t>> &zbbox,
-    std::vector<SlicerLayer>& layers)
+void Slicer::buildSegments
+(
+    const Mesh& mesh,
+    const std::vector<std::pair<int32_t, int32_t>> &zbbox,
+    const SlicingTolerance& slicing_tolerance,
+    std::vector<SlicerLayer>& layers
+)
 {
-    // OpenMP
-#pragma omp parallel for default(none) shared(mesh, zbbox, layers)
-    // Use a signed type for the loop counter so MSVC compiles (because it uses OpenMP 2.0, an old version).
-    for (int layer_nr = 0; layer_nr < static_cast<int>(layers.size()); layer_nr++)
+    cura::parallel_for(layers, [&](auto layer_it)
     {
-        int32_t z = layers[layer_nr].z;
-        layers[layer_nr].segments.reserve(100);
+        SlicerLayer& layer = *layer_it;
+        const int32_t& z = layer.z;
+        layer.segments.reserve(100);
 
         // loop over all mesh faces
         for (unsigned int mesh_idx = 0; mesh_idx < mesh.faces.size(); mesh_idx++)
         {
             if ((z < zbbox[mesh_idx].first) || (z > zbbox[mesh_idx].second))
-                 continue;
+            {
+                continue;
+            }
 
             // get all vertices per face
             const MeshFace& face = mesh.faces[mesh_idx];
@@ -843,6 +853,14 @@ void Slicer::buildSegments(const Mesh& mesh, const std::vector<std::pair<int32_t
             Point3 p0 = v0.p;
             Point3 p1 = v1.p;
             Point3 p2 = v2.p;
+
+            // Compensate for points exactly on the slice-boundary, except for 'inclusive', which already handles this correctly.
+            if (slicing_tolerance != SlicingTolerance::INCLUSIVE)
+            {
+                p0.z += static_cast<int>(p0.z == z);
+                p1.z += static_cast<int>(p1.z == z);
+                p2.z += static_cast<int>(p2.z == z);
+            }
 
             SlicerSegment s;
             s.endVertex = nullptr;
@@ -930,13 +948,13 @@ void Slicer::buildSegments(const Mesh& mesh, const std::vector<std::pair<int32_t
             }
 
             // store the segments per layer
-            layers[layer_nr].face_idx_to_segment_idx.insert(std::make_pair(mesh_idx, layers[layer_nr].segments.size()));
+            layer.face_idx_to_segment_idx.insert(std::make_pair(mesh_idx, layer.segments.size()));
             s.faceIndex = mesh_idx;
             s.endOtherFaceIdx = face.connected_face_index[end_edge_idx];
             s.addedToPolygon = false;
-            layers[layer_nr].segments.push_back(s);
+            layer.segments.push_back(s);
         }
-    }
+    });
 }
 
 std::vector<SlicerLayer> Slicer::buildLayersWithHeight(size_t slice_layer_count, SlicingTolerance slicing_tolerance,
@@ -948,7 +966,7 @@ std::vector<SlicerLayer> Slicer::buildLayersWithHeight(size_t slice_layer_count,
     layers_res.resize(slice_layer_count);
 
     // set (and initialize compensation for) initial layer, depending on slicing mode
-    layers_res[0].z = std::max(0LL, initial_layer_thickness - thickness);
+    layers_res[0].z = slicing_tolerance == SlicingTolerance::INCLUSIVE ? 0 : std::max(0LL, initial_layer_thickness - thickness);
     coord_t adjusted_layer_offset = initial_layer_thickness;
     if (use_variable_layer_heights)
     {
@@ -978,25 +996,21 @@ std::vector<SlicerLayer> Slicer::buildLayersWithHeight(size_t slice_layer_count,
 
 void Slicer::makePolygons(Mesh& mesh, SlicingTolerance slicing_tolerance, std::vector<SlicerLayer>& layers)
 {
-    std::vector<SlicerLayer>& layers_ref = layers; // force layers not to be copied into the threads
-
-#pragma omp parallel for default(none) shared(mesh, layers_ref)
-    // Use a signed type for the loop counter so MSVC compiles (because it uses OpenMP 2.0, an old version).
-    for (int layer_nr = 0; layer_nr < static_cast<int>(layers_ref.size()); layer_nr++)
+    cura::parallel_for(layers, [&mesh](auto layer_it)
     {
-        layers_ref[layer_nr].makePolygons(&mesh);
-    }
+        layer_it->makePolygons(&mesh);
+    });
 
     switch(slicing_tolerance)
     {
     case SlicingTolerance::INCLUSIVE:
-        for (unsigned int layer_nr = 0; layer_nr + 1 < layers_ref.size(); layer_nr++)
+        for (unsigned int layer_nr = 0; layer_nr + 1 < layers.size(); layer_nr++)
         {
             layers[layer_nr].polygons = layers[layer_nr].polygons.unionPolygons(layers[layer_nr + 1].polygons);
         }
         break;
     case SlicingTolerance::EXCLUSIVE:
-        for (unsigned int layer_nr = 0; layer_nr + 1 < layers_ref.size(); layer_nr++)
+        for (unsigned int layer_nr = 0; layer_nr + 1 < layers.size(); layer_nr++)
         {
             layers[layer_nr].polygons = layers[layer_nr].polygons.intersection(layers[layer_nr + 1].polygons);
         }
@@ -1008,7 +1022,7 @@ void Slicer::makePolygons(Mesh& mesh, SlicingTolerance slicing_tolerance, std::v
         ;
     }
 
-   LayerIndex layer_apply_initial_xy_offset = 0;
+   size_t layer_apply_initial_xy_offset = 0;
     if (layers.size() > 0 && layers[0].polygons.size() == 0
         && !mesh.settings.get<bool>("support_mesh")
         && !mesh.settings.get<bool>("anti_overhang_mesh")
@@ -1018,19 +1032,20 @@ void Slicer::makePolygons(Mesh& mesh, SlicingTolerance slicing_tolerance, std::v
         layer_apply_initial_xy_offset = 1;
     }
 
-#pragma omp parallel for default(none) shared(mesh, layers_ref, layer_apply_initial_xy_offset)
-    // Use a signed type for the loop counter so MSVC compiles (because it uses OpenMP 2.0, an old version).
-    for (int layer_nr = 0; layer_nr < static_cast<int>(layers_ref.size()); layer_nr++)
+
+    const coord_t xy_offset = mesh.settings.get<coord_t>("xy_offset");
+    const coord_t xy_offset_0 = mesh.settings.get<coord_t>("xy_offset_layer_0");
+
+    cura::parallel_for<size_t>(0, layers.size(), [&layers, layer_apply_initial_xy_offset, xy_offset, xy_offset_0](size_t layer_nr)
     {
-        const coord_t xy_offset = mesh.settings.get<coord_t>((layer_nr <= layer_apply_initial_xy_offset) ? "xy_offset_layer_0" : "xy_offset");
-
-        if (xy_offset != 0)
+        const coord_t xy_offset_local = (layer_nr <= layer_apply_initial_xy_offset) ? xy_offset_0 : xy_offset;
+        if (xy_offset_local != 0)
         {
-            layers_ref[layer_nr].polygons = layers_ref[layer_nr].polygons.offset(xy_offset);
+            layers[layer_nr].polygons = layers[layer_nr].polygons.offset(xy_offset_local, ClipperLib::JoinType::jtRound);
         }
-    }
+    });
 
-    mesh.expandXY(mesh.settings.get<coord_t>("xy_offset"));
+    mesh.expandXY(xy_offset);
 }
 
 

@@ -1,4 +1,4 @@
-//Copyright (c) 2020 Ultimaker B.V.
+//Copyright (c) 2021 Ultimaker B.V.
 //CuraEngine is released under the terms of the AGPLv3 or higher.
 
 #include <assert.h>
@@ -55,6 +55,7 @@ GCodeExport::GCodeExport()
     is_z_hopped = 0;
     setFlavor(EGCodeFlavor::MARLIN);
     initial_bed_temp = 0;
+    bed_temperature = 0;
     build_volume_temperature = 0;
     machine_heated_build_volume = false;
 
@@ -343,6 +344,11 @@ EGCodeFlavor GCodeExport::getFlavor() const
 void GCodeExport::setZ(int z)
 {
     current_layer_z = z;
+}
+
+void GCodeExport::addExtraPrimeAmount(double extra_prime_volume)
+{
+    extruder_attr[current_extruder].prime_volume += extra_prime_volume;
 }
 
 void GCodeExport::setFlowRateExtrusionSettings(double max_extrusion_offset, double extrusion_offset_factor)
@@ -700,7 +706,7 @@ void GCodeExport::writeMoveBFB(const int x, const int y, const int z, const Velo
     estimateCalculator.plan(TimeEstimateCalculator::Position(INT2MM(currentPosition.x), INT2MM(currentPosition.y), INT2MM(currentPosition.z), eToMm(current_e_value)), speed, feature);
 }
 
-void GCodeExport::writeTravel(const coord_t& x, const coord_t& y, const coord_t& z, const Velocity& speed)
+void GCodeExport::writeTravel(const coord_t x, const coord_t y, const coord_t z, const Velocity& speed)
 {
     if (currentPosition.x == x && currentPosition.y == y && currentPosition.z == z)
     {
@@ -708,7 +714,7 @@ void GCodeExport::writeTravel(const coord_t& x, const coord_t& y, const coord_t&
     }
 
 #ifdef ASSERT_INSANE_OUTPUT
-    assert(speed < 400 && speed > 1); // normal F values occurring in UM2 gcode (this code should not be compiled for release)
+    assert(speed < 1000 && speed > 1); // normal F values occurring in UM2 gcode (this code should not be compiled for release)
     assert(currentPosition != no_point3);
     assert(Point3(x, y, z) != no_point3);
     assert((Point3(x,y,z) - currentPosition).vSize() < MM2INT(1000)); // no crazy positions (this code should not be compiled for release)
@@ -723,7 +729,7 @@ void GCodeExport::writeTravel(const coord_t& x, const coord_t& y, const coord_t&
     writeFXYZE(speed, x, y, z, current_e_value, travel_move_type);
 }
 
-void GCodeExport::writeExtrusion(const int x, const int y, const int z, const Velocity& speed, const double extrusion_mm3_per_mm, const PrintFeatureType& feature, const bool update_extrusion_offset)
+void GCodeExport::writeExtrusion(const coord_t x, const coord_t y, const coord_t z, const Velocity& speed, const double extrusion_mm3_per_mm, const PrintFeatureType& feature, const bool update_extrusion_offset)
 {
     if (currentPosition.x == x && currentPosition.y == y && currentPosition.z == z)
     {
@@ -731,7 +737,7 @@ void GCodeExport::writeExtrusion(const int x, const int y, const int z, const Ve
     }
 
 #ifdef ASSERT_INSANE_OUTPUT
-    assert(speed < 400 && speed > 1); // normal F values occurring in UM2 gcode (this code should not be compiled for release)
+    assert(speed < 1000 && speed > 1); // normal F values occurring in UM2 gcode (this code should not be compiled for release)
     assert(currentPosition != no_point3);
     assert(Point3(x, y, z) != no_point3);
     assert((Point3(x,y,z) - currentPosition).vSize() < MM2INT(1000)); // no crazy positions (this code should not be compiled for release)
@@ -794,7 +800,7 @@ void GCodeExport::writeExtrusion(const int x, const int y, const int z, const Ve
     writeFXYZE(speed, x, y, z, new_e_value, feature);
 }
 
-void GCodeExport::writeFXYZE(const Velocity& speed, const int x, const int y, const int z, const double e, const PrintFeatureType& feature)
+void GCodeExport::writeFXYZE(const Velocity& speed, const coord_t x, const coord_t y, const coord_t z, const double e, const PrintFeatureType& feature)
 {
     if (currentSpeed != speed)
     {
@@ -1079,6 +1085,13 @@ void GCodeExport::writeCode(const char* str)
     *output_stream << str << new_line;
 }
 
+void GCodeExport::resetExtruderToPrimed(const size_t extruder, const double initial_retraction)
+{
+    extruder_attr[extruder].is_primed = true;
+
+    extruder_attr[extruder].retraction_e_amount_current = initial_retraction;
+}
+
 void GCodeExport::writePrimeTrain(const Velocity& travel_speed)
 {
     if (extruder_attr[current_extruder].is_primed)
@@ -1159,7 +1172,8 @@ void GCodeExport::writeFanCommand(double speed)
     }
     else if (speed > 0)
     {
-        *output_stream << "M106 S" << PrecisionedDouble{1, speed * 255 / 100};
+        const bool should_scale_zero_to_one = Application::getInstance().current_slice->scene.settings.get<bool>("machine_scale_fan_speed_zero_to_one");
+        *output_stream << "M106 S" << PrecisionedDouble{(should_scale_zero_to_one ? 2u : 1u), (should_scale_zero_to_one ? speed : speed * 255) / 100};
         if (fan_number)
         {
             *output_stream << " P" << fan_number;
@@ -1261,21 +1275,31 @@ void GCodeExport::writeBedTemperatureCommand(const Temperature& temperature, con
     { // The UM2 family doesn't support temperature commands (they are fixed in the firmware)
         return;
     }
-
+    bool wrote_command = false;
     if (wait)
     {
-        if(flavor == EGCodeFlavor::MARLIN)
+        if(bed_temperature != temperature) //Not already at the desired temperature.
         {
-            *output_stream << "M140 S"; // set the temperature, it will be used as target temperature from M105
-            *output_stream << PrecisionedDouble{1, temperature} << new_line;
-            *output_stream << "M105" << new_line;
+            if(flavor == EGCodeFlavor::MARLIN)
+            {
+                *output_stream << "M140 S"; // set the temperature, it will be used as target temperature from M105
+                *output_stream << PrecisionedDouble{1, temperature} << new_line;
+                *output_stream << "M105" << new_line;
+            }
         }
-
         *output_stream << "M190 S";
+        wrote_command = true;
     }
-    else
+    else if(bed_temperature != temperature)
+    {
         *output_stream << "M140 S";
-    *output_stream << PrecisionedDouble{1, temperature} << new_line;
+        wrote_command = true;
+    }
+    if(wrote_command)
+    {
+        *output_stream << PrecisionedDouble{1, temperature} << new_line;
+    }
+    bed_temperature = temperature;
 }
 
 void GCodeExport::writeBuildVolumeTemperatureCommand(const Temperature& temperature, const bool wait)

@@ -1,3 +1,4 @@
+## ignore such files
 *.tar.bz2
 *.tar.gz
 *.7z
@@ -15,7 +16,9 @@ callgrind/*
 ## Building result.
 build/*
 debug_build/*
-cmake-build-debug/*
+release_build/*
+cmake-build-*
+cmake-build-*
 libs/stb
 *.pyc
 *.exe
@@ -50,6 +53,9 @@ nbproject/*
 *.depend
 .*.swp
 .vs
+.cproject
+.project
+.settings
 
 ## Documentation.
 documentation/html/*
@@ -58,3 +64,6 @@ documentation/latex/*
 ## Test results.
 tests/output.xml
 callgrind.out.*
+
+CMakeUserPresets.json
+/conan_imports_manifest.txt

@@ -1,16 +1,17 @@
-//Copyright (c) 2019 Ultimaker B.V.
+//Copyright (c) 2021 Ultimaker B.V.
 //CuraEngine is released under the terms of the AGPLv3 or higher.
 
 #ifndef UTILS_POLYGON_UTILS_H
 #define UTILS_POLYGON_UTILS_H
 
-#include <vector>
 #include <functional> // function
+#include <limits>
+#include <optional>
+#include <memory> // unique_ptr
 
 #include "polygon.h"
 #include "SparsePointGridInclusive.h"
 #include "SparseLineGrid.h"
-#include "optional.h"
 #include "PolygonsPointIndex.h"
 
 namespace cura 
@@ -37,7 +38,7 @@ struct ClosestPolygonPoint
     {
         return point_idx != NO_INDEX;
     }
-    bool operator==(const ClosestPolygonPoint& rhs)
+    bool operator==(const ClosestPolygonPoint& rhs) const
     {
         // no need to compare on poy_idx
         // it's sometimes unused while poly is always initialized
@@ -85,21 +86,6 @@ struct GivenDistPoint
     int pos; //!< Index to the first point in the polygon of the line segment on which the result was found
 };
 
-/*!
- * Locator to extract a line segment out of a \ref PolygonsPointIndex
- */
-struct PolygonsPointIndexSegmentLocator
-{
-    std::pair<Point, Point> operator()(const PolygonsPointIndex& val) const
-    {
-        ConstPolygonRef poly = (*val.polygons)[val.poly_idx];
-        Point start = poly[val.point_idx];
-        unsigned int next_point_idx = (val.point_idx + 1) % poly.size();
-        Point end = poly[next_point_idx];
-        return std::pair<Point, Point>(start, end);
-    }
-};
-
 typedef SparseLineGrid<PolygonsPointIndex, PolygonsPointIndexSegmentLocator> LocToLineGrid;
 
 class PolygonUtils 
@@ -134,6 +120,16 @@ public:
      * \param result Where to store the generated points
      */
     static void spreadDots(PolygonsPointIndex start, PolygonsPointIndex end, unsigned int n_dots, std::vector<ClosestPolygonPoint>& result);
+
+    /*!
+     * Generate a grid of dots inside of the area of the \p polygons.
+     */
+    static std::vector<Point> spreadDotsArea(const Polygons& polygons, coord_t grid_size);
+
+    /*!
+     * Whether a polygon intersects with a line-segment. If true, the closest collision point to 'b' is stored in the result.
+     */
+    static bool lineSegmentPolygonsIntersection(const Point& a, const Point& b, const Polygons& current_outlines, const LocToLineGrid& outline_locator, Point& result, const coord_t within_max_dist);
 
     /*!
      * Get the normal of a boundary point, pointing outward.
@@ -327,33 +323,6 @@ public:
     static ClosestPolygonPoint ensureInsideOrOutside(const Polygons& polygons, Point& from, const ClosestPolygonPoint& closest_polygon_point, int preferred_dist_inside, const Polygons* loc_to_line_polygons = nullptr, const LocToLineGrid* loc_to_line_grid = nullptr, const std::function<int(Point)>& penalty_function = no_penalty_function);
 
     /*!
-     * Find a connecting line segment from one polygon to a collection of other polygons.
-     * 
-     * This implementation uses a sparse grid to get to an accurate result quickly
-     * 
-     * The first connection larger than \p min_connection_length and smaller than \p max_connection_length is returned.
-     * 
-     * \param poly1 The polygon in which to search for a conection
-     * \param polys2 The polygons to which to connect
-     * \param min_connection_length The minimal conection length a connection needs to have in order to stop looking for other connections
-     * \param max_connection_length The largest length of a connection to be found
-     */
-    static std::pair<ClosestPolygonPoint, ClosestPolygonPoint> findConnection(ConstPolygonRef poly1, Polygons& polys2, coord_t min_connection_length, coord_t max_connection_length, std::function<bool (std::pair<ClosestPolygonPoint, ClosestPolygonPoint>)> precondition);
-
-    /*!
-    * Find the two points in two polygons with the smallest distance.
-    * 
-    * The final connection will be close to the center of mass of the first polygon.
-    * 
-    * \warning The ClosestPolygonPoint::poly fields output parameters should be initialized with the polygons for which to find the smallest connection.
-    * 
-    * \param poly1_result Output parameter: the point at the one end of the smallest connection between its poly and \p poly2_result.poly.
-    * \param poly2_result Output parameter: the point at the other end of the smallest connection between its poly and \p poly1_result.poly.
-    * \param sample_size The number of points on each polygon to start the hill climbing search from. Use negative values for checking all combinations of points.
-    */
-    static void findSmallestConnection(ClosestPolygonPoint& poly1_result, ClosestPolygonPoint& poly2_result);
-
-    /*!
     * 
     * \warning Assumes \p poly1_result and \p poly2_result have their pos and poly fields initialized!
     */
@@ -423,7 +392,7 @@ public:
      * \param square_size The cell size used to bundle line segments (also used to chop up lines so that multiple cells contain the same long line)
      * \return A bucket grid mapping spatial locations to poly-point indices into \p polygons
      */
-    static LocToLineGrid* createLocToLineGrid(const Polygons& polygons, int square_size);
+    static std::unique_ptr<LocToLineGrid> createLocToLineGrid(const Polygons& polygons, int square_size);
 
     /*!
      * Find the line segment closest to a given point \p from within a cell-block of a size defined in the SparsePointGridInclusive \p loc_to_line
@@ -480,6 +449,10 @@ public:
     */
     static bool getNextPointWithDistance(Point from, int64_t dist, ConstPolygonRef poly, int start_idx, int poly_start_idx, GivenDistPoint& result);
 
+    /*!
+     * Walk a given \p distance along the polygon from a given point \p from on the polygon
+     */
+    static ClosestPolygonPoint walk(const ClosestPolygonPoint& from, coord_t distance);
 
     /*!
      * Get the point on a polygon which intersects a line parallel to a line going through the starting point and through another point.
@@ -614,6 +587,24 @@ public:
      * and 1.0 (the polygons are completely disjunct).
      */
     static double relativeHammingDistance(const Polygons& poly_a, const Polygons& poly_b);
+
+    /*!
+     * Create an approximation of a circle.
+     *
+     * This creates a regular polygon that is supposed to approximate a circle.
+     * \param mid The center of the circle.
+     * \param radius The radius of the circle.
+     * \param a_step The angle between segments of the circle.
+     * \return A new Polygon containing the circle.
+     */
+    static Polygon makeCircle(const Point mid, const coord_t radius, const AngleRadians a_step = M_PI / 8);
+
+    /*!
+     * Connect all polygons to their holes using zero widths hole channels, so that the polygons and their outlines are connected together
+     */
+    static Polygons connect(const Polygons& input);
+
+    static void fixSelfIntersections(const coord_t epsilon, Polygons& thiss);
 
 private:
     /*!

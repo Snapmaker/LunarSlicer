@@ -1,4 +1,4 @@
-//Copyright (c) 2020 Ultimaker B.V.
+//Copyright (c) 2022 Ultimaker B.V.
 //CuraEngine is released under the terms of the AGPLv3 or higher.
 
 #include <cctype>
@@ -11,8 +11,7 @@
 #include "EnumSettings.h"
 #include "FlowTempGraph.h"
 #include "Settings.h"
-#include "types/AngleDegrees.h" //For angle settings.
-#include "types/AngleRadians.h" //For angle settings.
+#include "types/Angle.h"
 #include "types/Duration.h" //For duration and time settings.
 #include "types/LayerIndex.h" //For layer index settings.
 #include "types/Ratio.h" //For ratio settings and percentages.
@@ -24,6 +23,7 @@
 #include "../utils/FMatrix4x3.h"
 #include "../utils/logoutput.h"
 #include "../utils/string.h" //For Escaped.
+#include "../BeadingStrategy/BeadingStrategyFactory.h"
 
 namespace cura
 {
@@ -338,6 +338,10 @@ template<> EFillMethod Settings::get<EFillMethod>(const std::string& key) const
     {
         return EFillMethod::GYROID;
     }
+    else if (value == "lightning")
+    {
+        return EFillMethod::LIGHTNING;
+    }
     else //Default.
     {
         return EFillMethod::NONE;
@@ -498,6 +502,10 @@ template<> CombingMode Settings::get<CombingMode>(const std::string& key) const
     {
         return CombingMode::NO_SKIN;
     }
+    else if (value == "no_outer_surfaces")
+    {
+        return CombingMode::NO_OUTER_SURFACES;
+    }
     else if (value == "infill")
     {
         return CombingMode::INFILL;
@@ -534,6 +542,19 @@ template<> SlicingTolerance Settings::get<SlicingTolerance>(const std::string& k
     else //Default.
     {
         return SlicingTolerance::MIDDLE;
+    }
+}
+
+template<> InsetDirection Settings::get<InsetDirection>(const std::string& key) const
+{
+    const std::string& value = get<std::string>(key);
+    if(value == "outside_in")
+    {
+        return InsetDirection::OUTSIDE_IN;
+    }
+    else //Default.
+    {
+        return InsetDirection::INSIDE_OUT;
     }
 }
 

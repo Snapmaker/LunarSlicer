@@ -1,4 +1,4 @@
-//Copyright (c) 2018 Ultimaker B.V.
+//Copyright (c) 2022 Ultimaker B.V.
 //CuraEngine is released under the terms of the AGPLv3 or higher.
 
 #ifdef ARCUS
@@ -288,6 +288,7 @@ ArcusCommunication::~ArcusCommunication()
 {
     log("Closing connection.\n");
     private_data->socket->close();
+    delete private_data->socket;
 }
 
 void ArcusCommunication::connect(const std::string& ip, const uint16_t port)
@@ -308,11 +309,16 @@ void ArcusCommunication::connect(const std::string& ip, const uint16_t port)
 
     log("Connecting to %s:%i\n", ip.c_str(), port);
     private_data->socket->connect(ip, port);
-    while (private_data->socket->getState() != Arcus::SocketState::Connected && private_data->socket->getState() != Arcus::SocketState::Error)
+    auto socket_state = private_data->socket->getState();
+    while (socket_state != Arcus::SocketState::Connected && socket_state != Arcus::SocketState::Error)
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(private_data->millisecUntilNextTry)); //Wait until we're connected. Check every XXXms.
+        socket_state = private_data->socket->getState();
     }
-    log("Connected to %s:%i\n", ip.c_str(), port);
+    if(socket_state != Arcus::SocketState::Connected)
+    {
+        log("Connected to %s:%i\n", ip.c_str(), port);
+    }
 }
 
 // On the one hand, don't expose the socket for normal use, but on the other, we need to mock it for unit-tests.
@@ -416,7 +422,7 @@ void ArcusCommunication::sendPolygon(const PrintFeatureType& type, const ConstPo
 
 void ArcusCommunication::sendPolygons(const PrintFeatureType& type, const Polygons& polygons, const coord_t& line_width, const coord_t& line_thickness, const Velocity& velocity)
 {
-    for (const ConstPolygonRef& polygon : polygons)
+    for(const std::vector<Point>& polygon : polygons)
     {
         path_compiler->sendPolygon(type, polygon, line_width, line_thickness, velocity);
     }

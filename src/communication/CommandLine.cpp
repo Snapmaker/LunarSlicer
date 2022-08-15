@@ -5,9 +5,6 @@
 #include <fstream> //To check if files exist.
 #include <errno.h> // error number when trying to read file
 #include <numeric> //For std::accumulate.
-#ifdef _OPENMP
-    #include <omp.h> //To change the number of threads to slice with.
-#endif //_OPENMP
 #include <rapidjson/rapidjson.h>
 #include <rapidjson/error/en.h> //Loading JSON documents to get settings from them.
 #include <rapidjson/filereadstream.h>
@@ -95,7 +92,7 @@ void CommandLine::sliceNext()
             num_mesh_groups++;
         }
     }
-    Slice slice(arguments[1], num_mesh_groups);
+    Slice slice(num_mesh_groups);
 
     Application::getInstance().current_slice = &slice;
 
@@ -147,15 +144,12 @@ void CommandLine::sliceNext()
                         increaseVerboseLevel();
                         break;
                     }
-#ifdef _OPENMP
                     case 'm':
                     {
                         int threads = stoi(argument.substr(2));
-                        threads = std::max(1, threads);
-                        omp_set_num_threads(threads);
+                        Application::getInstance().startThreadPool(threads);
                         break;
                     }
-#endif //_OPENMP
                     case 'p':
                     {
                         enableProgressLogging();
@@ -236,7 +230,11 @@ void CommandLine::sliceNext()
                             exit(1);
                         }
                         argument = arguments[argument_index];
-                        slice.scene.settings.add("output_path", argument);
+                        if (!FffProcessor::getInstance()->setTargetFile(argument.c_str()))
+                        {
+                            logError("Failed to open %s for output.\n", argument.c_str());
+                            exit(1);
+                        }
                         break;
                     }
                     case 'g':
@@ -310,6 +308,7 @@ void CommandLine::sliceNext()
 #endif //DEBUG
 
     //Finalize the processor. This adds the end g-code and reports statistics.
+    FffProcessor::getInstance()->finalize();
 }
 
 int CommandLine::loadJSON(const std::string& json_filename, Settings& settings)

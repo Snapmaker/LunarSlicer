@@ -31,10 +31,6 @@ public:
      */
     int print_speed;
 
-    int minimum_slope_tan = 0;
-    int minimum_slope_sin = 0;
-    int minimum_slope_cos = 0;
-
     explicit AdaptiveLayer(const coord_t layer_height);
 };
 

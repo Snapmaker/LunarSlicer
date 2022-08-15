@@ -1,397 +1,248 @@
-#Copyright (c) 2020 Ultimaker B.V.
+#Copyright (c) 2022 Ultimaker B.V.
 #LunarSlicer is released under the terms of the AGPLv3 or higher.
 
-cmake_minimum_required(VERSION 3.6.0)
-
+cmake_policy(SET CMP0091 NEW)  # For MSVC flags, will be ignored on non-Windows OS's
+cmake_minimum_required(VERSION 3.20)
 project(LunarSlicer VERSION 1.0.0)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
+set(CURA_ENGINE_VERSION "main" CACHE STRING "Version name of Cura")
 option(ENABLE_ARCUS "Enable support for ARCUS" OFF)
-
-if (MSVC)
-    option(MSVC_STATIC_RUNTIME "Link the MSVC runtime statically" OFF)
-endif()
-
-if(ENABLE_ARCUS)
-    message(STATUS "Building with Arcus")
-    # We want to have access to protobuf_generate_cpp and other FindProtobuf features.
-    # However, if ProtobufConfig is used instead, there is a CMake option that controls
-    # this, which defaults to OFF. We need to force this option to ON instead.
-    set(protobuf_MODULE_COMPATIBLE ON CACHE INTERNAL "" FORCE)
-    find_package(Protobuf 3.0.0 REQUIRED)
-    find_package(Arcus REQUIRED)
-    add_definitions(-DARCUS)
-endif()
-
-#For reading image files.
-find_package(Stb REQUIRED)
-include_directories(${Stb_INCLUDE_DIRS})
-
+option(BUILD_TESTING "Build with unit tests" OFF)
+option(ENABLE_MORE_COMPILER_OPTIMIZATION_FLAGS "Enable more optimization flags" ON)
 option(USE_SYSTEM_LIBS "Use the system libraries if available" OFF)
-if(USE_SYSTEM_LIBS)
-    find_package(RapidJSON CONFIG REQUIRED)
-    find_package(Polyclipping REQUIRED)
+option(ENABLE_MORE_COMPILER_OPTIMIZATION_FLAGS "Enable more optimization flags" ON)
+option(EXTENSIVE_WARNINGS "Compile with all warnings" OFF)
+
+if(NOT APPLE)
+    option(ENABLE_OPENMP "Use OpenMP for parallel code" ON)
 endif()
 
-# convert build type to upper case letters
-if(CMAKE_BUILD_TYPE)
-    string(TOUPPER ${CMAKE_BUILD_TYPE} CMAKE_BUILD_TYPE_UPPER)
-endif()
+include(cmake/StandardProjectSettings.cmake)
 
-if(CMAKE_BUILD_TYPE_UPPER MATCHES "DEBUG")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_DEBUG_INIT}")
-else()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_RELEASE_INIT}")
-endif()
-
-set(CMAKE_CXX_STANDARD 11)
-
-if(APPLE AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
-endif()
-
-if(NOT DEFINED LIB_SUFFIX)
-    set(LIB_SUFFIX "")
-endif()
-set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX}")
-
-set(CURA_ENGINE_VERSION "master" CACHE STRING "Version name of Cura")
-
-option(BUILD_TESTS OFF)
-
-# Add a compiler flag to check the output for insane values if we are in debug mode.
-if(CMAKE_BUILD_TYPE_UPPER MATCHES "DEBUG" OR CMAKE_BUILD_TYPE_UPPER MATCHES "RELWITHDEBINFO")
-    message(STATUS "Building debug release of LunarSlicer.")
-    if (NOT MSVC)
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wextra -O0 -g -fno-omit-frame-pointer")
-    endif()
-    add_definitions(-DASSERT_INSANE_OUTPUT)
-    add_definitions(-DUSE_CPU_TIME)
-    add_definitions(-DDEBUG)
-endif()
-
-if (MSVC)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /permissive- /Zc:twoPhase- /EHsc /W3")
-    if (MSVC_STATIC_RUNTIME)
-        foreach(flag_var
-            CMAKE_CXX_FLAGS
-            CMAKE_CXX_FLAGS_DEBUG
-            CMAKE_CXX_FLAGS_RELEASE
-            CMAKE_CXX_FLAGS_MINSIZEREL
-            CMAKE_CXX_FLAGS_RELWITHDEBINFO
-            )
-            if(${flag_var} MATCHES "/MD")
-                string(REGEX REPLACE "/MD" "/MT" ${flag_var} "${${flag_var}}")
-            endif()
-        endforeach()
-    endif()
-else()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall") # Add warnings
-endif()
-
-option (ENABLE_MORE_COMPILER_OPTIMIZATION_FLAGS
-    "Enable more optimization flags" ON)
-if (ENABLE_MORE_COMPILER_OPTIMIZATION_FLAGS AND NOT (CMAKE_BUILD_TYPE_UPPER MATCHES "DEBUG"))
-    message (STATUS "Compile with more optimization flags")
-    if (MSVC)
-        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} /fp:fast")
-    else()
-        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -Ofast -funroll-loops")
-    endif()
-endif ()
-
-if(NOT APPLE AND NOT WIN32)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libstdc++")
-endif()
-
-if (WIN32)
-    add_definitions(-DNOMINMAX)
-endif()
-
-option (ENABLE_OPENMP
-    "Use OpenMP for parallel code" ON)
-
-if(USE_SYSTEM_LIBS)
-    include_directories(${Polyclipping_INCLUDE_DIRS} "${CMAKE_BINARY_DIR}" ${RAPIDJSON_INCLUDE_DIRS})
-else()
-    include_directories("${CMAKE_CURRENT_BINARY_DIR}" libs libs/clipper)
-    add_library(clipper STATIC libs/clipper/clipper.cpp)
-endif()
-
-include_directories("${CMAKE_CURRENT_BINARY_DIR}" libs/earcut)
-
-set(engine_SRCS # Except main.cpp.
-    src/Application.cpp
-    src/bridge.cpp
-    src/ConicalOverhang.cpp
-    src/ExtruderTrain.cpp
-    src/FffGcodeWriter.cpp
-    src/FffPolygonGenerator.cpp
-    src/FffProcessor.cpp
-    src/FffSupportGenerator.cpp
-    src/gcodeExport.cpp
-    src/GCodePathConfig.cpp
-    src/infill.cpp
-    src/InsetOrderOptimizer.cpp
-    src/layerPart.cpp
-    src/LayerPlan.cpp
-    src/LayerPlanBuffer.cpp
-    src/MergeInfillLines.cpp
-    src/mesh.cpp
-    src/MeshGroup.cpp
-    src/Mold.cpp
-    src/multiVolumes.cpp
-    src/pathOrderOptimizer.cpp
-    src/Preheat.cpp
-    src/PrimeTower.cpp
-    src/raft.cpp
-    src/Scene.cpp
-    src/skin.cpp
-    src/SkirtBrim.cpp
-    src/SupportInfillPart.cpp
-    src/Slice.cpp
-    src/sliceDataStorage.cpp
-    src/slicer.cpp
-    src/support.cpp
-    src/timeEstimate.cpp
-    src/TopSurface.cpp
-    src/TreeSupport.cpp
-    src/WallsComputation.cpp
-    src/wallOverlap.cpp
-    src/Weaver.cpp
-    src/Wireframe2gcode.cpp
-
-    src/communication/ArcusCommunication.cpp
-    src/communication/ArcusCommunicationPrivate.cpp
-    src/communication/CommandLine.cpp
-    src/communication/Listener.cpp
-
-    src/infill/ImageBasedDensityProvider.cpp
-    src/infill/NoZigZagConnectorProcessor.cpp
-    src/infill/ZigzagConnectorProcessor.cpp
-    src/infill/SierpinskiFill.cpp
-    src/infill/SierpinskiFillProvider.cpp
-    src/infill/SubDivCube.cpp
-    src/infill/GyroidInfill.cpp
-
-    src/pathPlanning/Comb.cpp
-    src/pathPlanning/GCodePath.cpp
-    src/pathPlanning/LinePolygonsCrossings.cpp
-    src/pathPlanning/NozzleTempInsert.cpp
-    src/pathPlanning/TimeMaterialEstimates.cpp
-
-    src/progress/Progress.cpp
-    src/progress/ProgressStageEstimator.cpp
-
-    src/settings/AdaptiveLayerHeights.cpp
-    src/settings/FlowTempGraph.cpp
-    src/settings/PathConfigStorage.cpp
-    src/settings/Settings.cpp
-
-    src/utils/AABB.cpp
-    src/utils/AABB3D.cpp
-    src/utils/Date.cpp
-    src/utils/FMatrix4x3.cpp
-    src/utils/gettime.cpp
-    src/utils/getpath.cpp
-    src/utils/LinearAlg2D.cpp
-    src/utils/ListPolyIt.cpp
-    src/utils/logoutput.cpp
-    src/utils/MinimumSpanningTree.cpp
-    src/utils/Point3.cpp
-    src/utils/PolygonConnector.cpp
-    src/utils/PolygonsPointIndex.cpp
-    src/utils/PolygonProximityLinker.cpp
-    src/utils/polygonUtils.cpp
-    src/utils/polygon.cpp
-    src/utils/ProximityPointLink.cpp
-    src/utils/SVG.cpp
-    src/utils/socket.cpp
-)
-
-# List of tests. For each test there must be a file tests/${NAME}.cpp.
-set(engine_TEST
-    GCodeExportTest
-    InfillTest
-    LayerPlanTest
-    MergeInfillLinesTest
-    TimeEstimateCalculatorTest
-)
-set(engine_TEST_INFILL
-)
-set(engine_TEST_INTEGRATION
-    SlicePhaseTest
-)
-set(engine_TEST_SETTINGS
-    SettingsTest
-)
+# Create Protobuf files if Arcus is used
 if (ENABLE_ARCUS)
-    set(engine_TEST_ARCUS
-        ArcusCommunicationTest
-        ArcusCommunicationPrivateTest
-    )
-endif ()
-set(engine_TEST_UTILS
-    AABBTest
-    AABB3DTest
-    IntPointTest
-    LinearAlg2DTest
-    MinimumSpanningTreeTest
-    PolygonConnectorTest
-    PolygonTest
-    PolygonUtilsTest
-    SparseGridTest
-    StringTest
-    UnionFindTest
-)
+    message(STATUS "Building with Arcus")
 
-# Helper classes for some tests.
-set(engine_TEST_ARCUS_HELPERS
-    tests/arcus/MockSocket.cpp
-)
-set(engine_TEST_HELPERS
-    tests/ReadTestPolygons.cpp
-)
-
-# Generating ProtoBuf protocol
-if (ENABLE_ARCUS)
+    find_package(arcus 5.0.0 REQUIRED)
+    find_package(protobuf 3.17.1 REQUIRED)
     protobuf_generate_cpp(engine_PB_SRCS engine_PB_HEADERS Cura.proto)
 endif ()
 
-# Compiling LunarSlicer itself.
-add_library(_LunarSlicer STATIC ${engine_SRCS} ${engine_PB_SRCS}) #First compile all of LunarSlicer as library, allowing this to be re-used for tests.
+### Compiling LunarSlicer ###
+# First compile all of LunarSlicer as library, allowing this to be re-used for tests.
 
-if (ENABLE_OPENMP)
-    FIND_PACKAGE( OpenMP )
-    if( OPENMP_FOUND )
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}" )
-        target_include_directories(_LunarSlicer PUBLIC ${OpenMP_CXX_INCLUDE_DIRS})
-        target_link_libraries(_LunarSlicer ${OpenMP_libomp_LIBRARY})
-    endif()
-endif()
+set(engine_SRCS # Except main.cpp.
+        src/Application.cpp
+        src/bridge.cpp
+        src/ConicalOverhang.cpp
+        src/ExtruderTrain.cpp
+        src/FffGcodeWriter.cpp
+        src/FffPolygonGenerator.cpp
+        src/FffProcessor.cpp
+        src/gcodeExport.cpp
+        src/GCodePathConfig.cpp
+        src/infill.cpp
+        src/InsetOrderOptimizer.cpp
+        src/layerPart.cpp
+        src/LayerPlan.cpp
+        src/LayerPlanBuffer.cpp
+        src/mesh.cpp
+        src/MeshGroup.cpp
+        src/Mold.cpp
+        src/multiVolumes.cpp
+        src/PathOrderPath.cpp
+        src/Preheat.cpp
+        src/PrimeTower.cpp
+        src/raft.cpp
+        src/Scene.cpp
+        src/SkeletalTrapezoidation.cpp
+        src/SkeletalTrapezoidationGraph.cpp
+        src/skin.cpp
+        src/SkirtBrim.cpp
+        src/SupportInfillPart.cpp
+        src/Slice.cpp
+        src/sliceDataStorage.cpp
+        src/slicer.cpp
+        src/support.cpp
+        src/timeEstimate.cpp
+        src/TopSurface.cpp
+        src/TreeModelVolumes.cpp
+        src/TreeSupport.cpp
+        src/WallsComputation.cpp
+        src/Weaver.cpp
+        src/Wireframe2gcode.cpp
+        src/WallToolPaths.cpp
 
-if (CuraEngine_Download_Stb)
-    add_dependencies(_LunarSlicer stb)
-endif()
-if(USE_SYSTEM_LIBS)
-    target_link_libraries(_LunarSlicer ${Polyclipping_LIBRARIES})
-else()
-    target_link_libraries(_LunarSlicer clipper)
-endif()
+        src/BeadingStrategy/BeadingStrategy.cpp
+        src/BeadingStrategy/BeadingStrategyFactory.cpp
+        src/BeadingStrategy/DistributedBeadingStrategy.cpp
+        src/BeadingStrategy/LimitedBeadingStrategy.cpp
+        src/BeadingStrategy/RedistributeBeadingStrategy.cpp
+        src/BeadingStrategy/WideningBeadingStrategy.cpp
+        src/BeadingStrategy/OuterWallInsetBeadingStrategy.cpp
 
-if (ENABLE_OPENMP)
-    FIND_PACKAGE( OpenMP )
-    if( OPENMP_FOUND )
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}" )
-        target_include_directories(_LunarSlicer PUBLIC ${OpenMP_CXX_INCLUDE_DIRS})
-        target_link_libraries(_LunarSlicer ${OpenMP_libomp_LIBRARY})
-    endif()
-endif()
+        src/communication/ArcusCommunication.cpp
+        src/communication/ArcusCommunicationPrivate.cpp
+        src/communication/CommandLine.cpp
+        src/communication/Listener.cpp
 
-if (ENABLE_ARCUS)
-    target_link_libraries(_LunarSlicer Arcus)
-endif ()
+        src/infill/ImageBasedDensityProvider.cpp
+        src/infill/NoZigZagConnectorProcessor.cpp
+        src/infill/ZigzagConnectorProcessor.cpp
+        src/infill/LightningDistanceField.cpp
+        src/infill/LightningGenerator.cpp
+        src/infill/LightningLayer.cpp
+        src/infill/LightningTreeNode.cpp
+        src/infill/SierpinskiFill.cpp
+        src/infill/SierpinskiFillProvider.cpp
+        src/infill/SubDivCube.cpp
+        src/infill/GyroidInfill.cpp
 
-set_target_properties(_LunarSlicer PROPERTIES COMPILE_DEFINITIONS "VERSION=\"${CURA_ENGINE_VERSION}\"")
+        src/pathPlanning/Comb.cpp
+        src/pathPlanning/GCodePath.cpp
+        src/pathPlanning/LinePolygonsCrossings.cpp
+        src/pathPlanning/NozzleTempInsert.cpp
+        src/pathPlanning/TimeMaterialEstimates.cpp
 
-if(WIN32)
-  message(STATUS "Using windres")
-#  set(RES_FILES "LunarSlicer.rc")
-  ENABLE_LANGUAGE(RC)
-  if(NOT MSVC)
-    SET(CMAKE_RC_COMPILER_INIT windres)
-    SET(CMAKE_RC_COMPILE_OBJECT
-        "<CMAKE_RC_COMPILER> <FLAGS> -O coff <DEFINES> -i <SOURCE> -o <OBJECT>"
+        src/progress/Progress.cpp
+        src/progress/ProgressStageEstimator.cpp
+
+        src/settings/AdaptiveLayerHeights.cpp
+        src/settings/FlowTempGraph.cpp
+        src/settings/PathConfigStorage.cpp
+        src/settings/Settings.cpp
+        src/settings/ZSeamConfig.cpp
+
+        src/utils/AABB.cpp
+        src/utils/AABB3D.cpp
+        src/utils/Date.cpp
+        src/utils/ExtrusionJunction.cpp
+        src/utils/ExtrusionLine.cpp
+        src/utils/ExtrusionSegment.cpp
+        src/utils/FMatrix4x3.cpp
+        src/utils/gettime.cpp
+        src/utils/getpath.cpp
+        src/utils/LinearAlg2D.cpp
+        src/utils/ListPolyIt.cpp
+        src/utils/logoutput.cpp
+        src/utils/MinimumSpanningTree.cpp
+        src/utils/Point3.cpp
+        src/utils/PolygonConnector.cpp
+        src/utils/PolygonsPointIndex.cpp
+        src/utils/PolygonsSegmentIndex.cpp
+        src/utils/polygonUtils.cpp
+        src/utils/polygon.cpp
+        src/utils/PolylineStitcher.cpp
+        src/utils/ProximityPointLink.cpp
+        src/utils/Simplify.cpp
+        src/utils/SVG.cpp
+        src/utils/socket.cpp
+        src/utils/SquareGrid.cpp
+        src/utils/ThreadPool.cpp
+        src/utils/ToolpathVisualizer.cpp
+        src/utils/VoronoiUtils.cpp
         )
- endif()
-endif(WIN32)
 
-if (UNIX)
-    target_link_libraries(_LunarSlicer pthread)
+add_library(_LunarSlicer STATIC ${engine_SRCS} ${engine_PB_SRCS})
+use_threads(_LunarSlicer)
+
+target_include_directories(_LunarSlicer
+        PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}> # Include Cura.pb.h
+        )
+target_compile_definitions(_LunarSlicer
+        PUBLIC
+        $<$<BOOL:${BUILD_TESTING}>:BUILD_TESTS>
+        $<$<BOOL:${ENABLE_ARCUS}>:ARCUS>
+        PRIVATE
+        VERSION=\"${CURA_ENGINE_VERSION}\"
+        $<$<BOOL:${WIN32}>:NOMINMAX>
+        $<$<CONFIG:Debug>:ASSERT_INSANE_OUTPUT>
+        $<$<CONFIG:Debug>:USE_CPU_TIME>
+        $<$<CONFIG:Debug>:DEBUG>
+        $<$<CONFIG:RelWithDebInfo>:ASSERT_INSANE_OUTPUT>
+        $<$<CONFIG:RelWithDebInfo>:USE_CPU_TIME>
+        $<$<CONFIG:RelWithDebInfo>:DEBUG>
+        )
+if(MSVC)
+    target_compile_options(_LunarSlicer
+            PRIVATE
+            $<$<AND:$<BOOL:${ENABLE_MORE_COMPILER_OPTIMIZATION_FLAGS}>,$<CONFIG:Release>>:/fp:fast>
+            )
+else()
+    target_compile_options(_LunarSlicer
+            PRIVATE
+            $<$<CONFIG:Debug>:-fno-omit-frame-pointer>
+            $<$<CONFIG:RelWithDebInfo>:-fno-omit-frame-pointer>
+            $<$<AND:$<BOOL:${ENABLE_MORE_COMPILER_OPTIMIZATION_FLAGS}>,$<CONFIG:Release>>:-Ofast>
+            $<$<AND:$<BOOL:${ENABLE_MORE_COMPILER_OPTIMIZATION_FLAGS}>,$<CONFIG:Release>>:-funroll-loops>
+            )
 endif()
+
+set_project_standards(_LunarSlicer)
+enable_sanitizers(_LunarSlicer)
+
+if(${EXTENSIVE_WARNINGS})
+    set_project_warnings(_LunarSlicer)
+endif()
+
+if(ENABLE_OPENMP)
+    find_package(OpenMP REQUIRED)
+    target_link_libraries(_LunarSlicer PUBLIC OpenMP::OpenMP_CXX)
+endif()
+
+if(ENABLE_ARCUS)
+    target_link_libraries(_LunarSlicer PRIVATE arcus::libarcus protobuf::libprotobuf)
+endif()
+
+#find_package(clipper 6.4.2 REQUIRED)
+#find_package(rapidjson 1.1.0 REQUIRED)
+#find_package(stb 20200203 REQUIRED)
+#find_package(Boost 1.78.0 REQUIRED)
+
+#target_link_libraries(_LunarSlicer PRIVATE clipper::clipper rapidjson::rapidjson stb::stb boost::boost)
+
+include_directories("${CMAKE_CURRENT_BINARY_DIR}" libs libs/clipper)
+add_library(clipper STATIC libs/clipper/clipper.cpp)
+target_link_libraries(_LunarSlicer PRIVATE clipper)
+
+find_package(Stb REQUIRED)
+include_directories(${Stb_INCLUDE_DIRS})
+
+add_dependencies(_LunarSlicer stb)
+
+if (WIN32)
+    message(STATUS "Using windres")
+    set(RES_FILES "CuraEngine.rc")
+    ENABLE_LANGUAGE(RC)
+    if (NOT MSVC)
+        SET(CMAKE_RC_COMPILER_INIT windres)
+        SET(CMAKE_RC_COMPILE_OBJECT
+                "<CMAKE_RC_COMPILER> <FLAGS> -O coff <DEFINES> -i <SOURCE> -o <OBJECT>"
+                )
+    endif ()
+endif (WIN32)
 
 if (NOT WIN32)
-  add_executable(LunarSlicer src/main.cpp) # Then compile main.cpp as separate executable, and link the library to it.
-else()
-  add_executable(LunarSlicer src/main.cpp ${RES_FILES}) # ..., but don't forget the glitter!
-endif(NOT WIN32)
+    add_executable(LunarSlicer src/main.cpp) # Then compile main.cpp as separate executable, and link the library to it.
+else ()
+    add_executable(LunarSlicer src/main.cpp ${RES_FILES}) # ..., but don't forget the glitter!
+endif (NOT WIN32)
 
-target_link_libraries(LunarSlicer _LunarSlicer)
-set_target_properties(LunarSlicer PROPERTIES COMPILE_DEFINITIONS "VERSION=\"${CURA_ENGINE_VERSION}\"")
+# Create the executable
+target_link_libraries(LunarSlicer PRIVATE _LunarSlicer)
+target_compile_definitions(LunarSlicer PRIVATE VERSION=\"${CURA_ENGINE_VERSION}\")
 
 # Compiling the test environment.
-if (BUILD_TESTS)
-    include(CTest)
-
-    message(STATUS "Building tests...")
-    set(GTEST_USE_STATIC_LIBS true)
-    set(GMOCK_ROOT "${CMAKE_CURRENT_BINARY_DIR}/gmock")
-    set(GMOCK_VER "1.8.0")
-    find_package(GMock REQUIRED)
-    include_directories(${GTEST_INCLUDE_DIRS})
-    include_directories(${GMOCK_INCLUDE_DIRS})
-    add_dependencies(_LunarSlicer GTest::GTest GTest::Main GMock::GMock GMock::Main)
-    add_definitions(-DBUILD_TESTS)
-
-    target_compile_definitions(_LunarSlicer PUBLIC BUILD_TESTS=1)
-
-    #To make sure that the tests are built before running them, add the building of these tests as an additional test.
-    add_custom_target(build_all_tests)
-    add_test(BuildTests "${CMAKE_COMMAND}" --build "${CMAKE_CURRENT_BINARY_DIR}" --target build_all_tests)
-
-    foreach (test ${engine_TEST})
-        add_executable(${test} tests/main.cpp ${engine_TEST_HELPERS} tests/${test}.cpp)
-        target_link_libraries(${test} _LunarSlicer ${GTEST_BOTH_LIBRARIES} ${GMOCK_BOTH_LIBRARIES})
-        add_test(NAME ${test} COMMAND "${test}" WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/tests/")
-        add_dependencies(build_all_tests ${test}) #Make sure that this gets built as part of the build_all_tests target.
-    endforeach()
-    foreach (test ${engine_TEST_INFILL})
-        add_executable(${test} tests/main.cpp tests/infill/${test}.cpp)
-        target_link_libraries(${test} _LunarSlicer ${GTEST_BOTH_LIBRARIES} ${GMOCK_BOTH_LIBRARIES})
-        add_test(NAME ${test} COMMAND "${test}" WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/tests/")
-        add_dependencies(build_all_tests ${test}) #Make sure that this gets built as part of the build_all_tests target.
-    endforeach()
-    foreach (test ${engine_TEST_INTEGRATION})
-        add_executable(${test} tests/main.cpp tests/integration/${test}.cpp)
-        target_link_libraries(${test} _LunarSlicer ${GTEST_BOTH_LIBRARIES} ${GMOCK_BOTH_LIBRARIES})
-        add_test(NAME ${test} COMMAND "${test}" WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/tests/")
-        add_dependencies(build_all_tests ${test}) #Make sure that this gets built as part of the build_all_tests target.
-    endforeach()
-    foreach (test ${engine_TEST_SETTINGS})
-        add_executable(${test} tests/main.cpp tests/settings/${test}.cpp)
-        target_link_libraries(${test} _LunarSlicer ${GTEST_BOTH_LIBRARIES} ${GMOCK_BOTH_LIBRARIES})
-        add_test(NAME ${test} COMMAND "${test}" WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/tests/")
-        add_dependencies(build_all_tests ${test}) #Make sure that this gets built as part of the build_all_tests target.
-    endforeach()
-    if (ENABLE_ARCUS)
-        foreach (test ${engine_TEST_ARCUS})
-            add_executable(${test} tests/main.cpp ${engine_TEST_ARCUS_HELPERS} tests/arcus/${test}.cpp)
-            target_link_libraries(${test} _LunarSlicer ${GTEST_BOTH_LIBRARIES} ${GMOCK_BOTH_LIBRARIES})
-            add_test(NAME ${test} COMMAND "${test}" WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/tests/")
-            add_dependencies(build_all_tests ${test}) #Make sure that this gets built as part of the build_all_tests target.
-        endforeach()
-    endif ()
-    foreach (test ${engine_TEST_UTILS})
-        add_executable(${test} tests/main.cpp tests/utils/${test}.cpp)
-        target_link_libraries(${test} _LunarSlicer ${GTEST_BOTH_LIBRARIES} ${GMOCK_BOTH_LIBRARIES})
-        add_test(NAME ${test} COMMAND "${test}" WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/tests/")
-        add_dependencies(build_all_tests ${test}) #Make sure that this gets built as part of the build_all_tests target.
-    endforeach()
+if (BUILD_TESTING)
+    enable_testing()
+    add_subdirectory(tests)
 endif()
 
 # Installing LunarSlicer.
 include(GNUInstallDirs)
 install(TARGETS LunarSlicer DESTINATION "${CMAKE_INSTALL_BINDIR}")
-# For MinGW64 cross compiling on Debian, we create a ZIP package instead of a DEB
-# Because it's the Windows build system that should install the files.
-if (CMAKE_CROSSCOMPILING AND CMAKE_SYSTEM_NAME MATCHES "Windows")
-    message(STATUS "Include MinGW64 posix DLLs for installation.")
-    install(FILES
-            /usr/lib/gcc/x86_64-w64-mingw32/8.3-posix/libgcc_s_seh-1.dll
-            /usr/lib/gcc/x86_64-w64-mingw32/8.3-posix/libgomp-1.dll
-            /usr/lib/gcc/x86_64-w64-mingw32/8.3-posix/libstdc++-6.dll
-            DESTINATION bin
-            COMPONENT runtime)
-endif ()
-include(CPackConfig.cmake)

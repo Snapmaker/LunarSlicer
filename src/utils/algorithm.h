@@ -1,11 +1,12 @@
-/** Copyright (C) 2016 Ultimaker - Released under terms of the AGPLv3 License */
+//Copyright (c) 2021 Ultimaker B.V.
+//CuraEngine is released under the terms of the AGPLv3 or higher.
+
 #ifndef UTILS_ALGORITHM_H
 #define UTILS_ALGORITHM_H
 
 #include <algorithm>
-#include <vector>
-#include <functional>
 #include <numeric>
+#include <vector>
 
 // extensions to algorithm.h from the standard library
 
@@ -40,6 +41,7 @@ std::vector<size_t> order(const std::vector<T> &in)
 
     return order;
 }
+
 
 } // namespace cura
 

@@ -32,7 +32,7 @@ Mesh::Mesh()
 {
 }
 
-void Mesh::addFace(Point3& v0, Point3& v1, Point3& v2, int flag)
+void Mesh::addFace(Point3& v0, Point3& v1, Point3& v2)
 {
     int vi0 = findIndexOfVertex(v0);
     int vi1 = findIndexOfVertex(v1);
@@ -45,7 +45,6 @@ void Mesh::addFace(Point3& v0, Point3& v1, Point3& v2, int flag)
     face.vertex_index[0] = vi0;
     face.vertex_index[1] = vi1;
     face.vertex_index[2] = vi2;
-    face.support_flag = flag;
     vertices[face.vertex_index[0]].connected_faces.push_back(idx);
     vertices[face.vertex_index[1]].connected_faces.push_back(idx);
     vertices[face.vertex_index[2]].connected_faces.push_back(idx);
@@ -105,6 +104,11 @@ void Mesh::transform(const FMatrix4x3& transformation)
 }
 
 
+bool Mesh::isPrinted() const
+{
+    return !settings.get<bool>("infill_mesh") && !settings.get<bool>("cutting_mesh") && !settings.get<bool>("anti_overhang_mesh");
+}
+    
 int Mesh::findIndexOfVertex(const Point3& v)
 {
     uint32_t hash = pointHash(v);

@@ -68,12 +68,12 @@ public:
     };
 
 private:
-    Velocity max_feedrate[NUM_AXIS] = {120, 120, 40, 25}; // mm/s
-    Velocity minimumfeedrate = 0.05;
-    Acceleration acceleration = 1000;
-    Acceleration max_acceleration[NUM_AXIS] = {3000, 3000, 100, 10000};
-    Velocity max_xy_jerk = 10.0;
-    Velocity max_z_jerk = 0.3;
+    Velocity max_feedrate[NUM_AXIS] = {600, 600, 40, 25}; // mm/s
+    Velocity minimumfeedrate = 0.01;
+    Acceleration acceleration = 3000;
+    Acceleration max_acceleration[NUM_AXIS] = {9000, 9000, 100, 10000};
+    Velocity max_xy_jerk = 20.0;
+    Velocity max_z_jerk = 0.4;
     Velocity max_e_jerk = 5.0;
     Duration extra_time = 0.0;
     
@@ -99,13 +99,22 @@ public:
     
     std::vector<Duration> calculate();
 private:
-    void reverse_pass();
-    void forward_pass();
-    void recalculate_trapezoids();
+    void reversePass();
+    void forwardPass();
 
-    void calculate_trapezoid_for_block(Block *block, const Ratio entry_factor, const Ratio exit_factor);
-    void planner_reverse_pass_kernel(Block *previous, Block *current, Block *next);
-    void planner_forward_pass_kernel(Block *previous, Block *current, Block *next);
+    // Recalculates the trapezoid speed profiles for all blocks in the plan according to the
+    // entry_factor for each junction. Must be called by planner_recalculate() after
+    // updating the blocks.
+    void recalculateTrapezoids();
+
+    // Calculates trapezoid parameters so that the entry- and exit-speed is compensated by the provided factors.
+    void calculateTrapezoidForBlock(Block *block, const Ratio entry_factor, const Ratio exit_factor);
+
+    // The kernel called by accelerationPlanner::calculate() when scanning the plan from last to first entry.
+    void plannerReversePassKernel(Block *previous, Block *current, Block *next);
+
+    // The kernel called by accelerationPlanner::calculate() when scanning the plan from first to last entry.
+    void plannerForwardPassKernel(Block *previous, Block *current, Block *next);
 };
 
 }//namespace cura

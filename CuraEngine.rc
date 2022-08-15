@@ -11,10 +11,10 @@ BEGIN
       VALUE "CompanyName", "Ultimaker BV."
       VALUE "FileDescription", "Slicing engine for Cura"
       VALUE "FileVersion", "1.0"
-      VALUE "InternalName", "CuraEngine"
+      VALUE "InternalName", "LunarSlicer"
       VALUE "LegalCopyright", "Ultimaker BV."
-      VALUE "OriginalFilename", "CuraEngine.exe"
-      VALUE "ProductName", "CuraEngine"
+      VALUE "OriginalFilename", "LunarSlicer.exe"
+      VALUE "ProductName", "LunarSlicer"
       VALUE "ProductVersion", "1.0"
     END
   END

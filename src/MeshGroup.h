@@ -38,7 +38,7 @@ public:
      * that's the center in the X and Y directions, but Z=0. This simulates the
      * shrinkage while sticking to the build plate.
      */
-    void scaleFromBottom(const Ratio factor);
+    void scaleFromBottom(const Ratio factor_xy, const Ratio factor_z);
 };
 
 /*!
@@ -51,8 +51,6 @@ public:
  * \return whether the file could be loaded
  */
 bool loadMeshIntoMeshGroup(MeshGroup* meshgroup, const char* filename, const FMatrix4x3& transformation, Settings& object_parent_settings);
-
-bool saveMeshSTL(Mesh* mesh, const char* filename, bool binary);
 
 } //namespace cura
 
