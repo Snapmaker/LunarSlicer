@@ -7,7 +7,7 @@ project(CuraEngine)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-option(ENABLE_ARCUS "Enable support for ARCUS" ON)
+option(ENABLE_ARCUS "Enable support for ARCUS" OFF)
 
 if (MSVC)
     option(MSVC_STATIC_RUNTIME "Link the MSVC runtime statically" OFF)
