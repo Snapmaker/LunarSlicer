@@ -204,7 +204,7 @@ target_link_libraries(_CuraEngine
         $<$<BOOL:${ENABLE_TESTING}>:GTest::gtest>)
 
 if (NOT WIN32)
-    add_executable(CuraEngine src/main.cpp) # Then compile main.cpp as separate executable, and link the library to it.
+    add_executable(LunarSlicer src/main.cpp) # Then compile main.cpp as separate executable, and link the library to it.
 else ()
     message(STATUS "Using windres")
     set(RES_FILES "CuraEngine.rc")
@@ -215,12 +215,12 @@ else ()
                 "<CMAKE_RC_COMPILER> <FLAGS> -O coff <DEFINES> -i <SOURCE> -o <OBJECT>"
                 )
     endif ()
-    add_executable(CuraEngine src/main.cpp ${RES_FILES}) # ..., but don't forget the glitter!
+    add_executable(LunarSlicer src/main.cpp ${RES_FILES}) # ..., but don't forget the glitter!
 endif (NOT WIN32)
 
 # Create the executable
-target_link_libraries(CuraEngine PRIVATE _CuraEngine)
-target_compile_definitions(CuraEngine PRIVATE VERSION=\"${CURA_ENGINE_VERSION}\")
+target_link_libraries(LunarSlicer PRIVATE _CuraEngine)
+target_compile_definitions(LunarSlicer PRIVATE VERSION=\"${CURA_ENGINE_VERSION}\")
 
 # Compiling the test environment.
 if (ENABLE_TESTING)
