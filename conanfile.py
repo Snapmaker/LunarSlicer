@@ -34,7 +34,7 @@ class CuraEngineConan(ConanFile):
         "enable_extensive_warnings": [True, False]
     }
     default_options = {
-        "enable_arcus": True,
+        "enable_arcus": False,
         "enable_openmp": True,
         "enable_testing": False,
         "enable_extensive_warnings": False,
