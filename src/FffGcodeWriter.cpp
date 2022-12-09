@@ -563,6 +563,9 @@ void FffGcodeWriter::processInitialLayerTemperature(const SliceDataStorage& stor
             }
             if (scene.current_mesh_group->settings.get<bool>("material_print_temp_wait"))
             {
+                const double temp_wait_range = scene.current_mesh_group->settings.get<double>("material_print_temp_wait_range");
+                const double temp_wait_time = scene.current_mesh_group->settings.get<double>("material_print_temp_wait_time");
+
                 for (unsigned extruder_nr = 0; extruder_nr < num_extruders; extruder_nr++)
                 {
                     if (extruder_is_used[extruder_nr])
@@ -578,7 +581,7 @@ void FffGcodeWriter::processInitialLayerTemperature(const SliceDataStorage& stor
                         {
                             extruder_temp = train.settings.get<Temperature>("material_standby_temperature");
                         }
-                        gcode.writeTemperatureCommand(extruder_nr, extruder_temp, true);
+                        gcode.writeTemperatureCommand(extruder_nr, extruder_temp, true, temp_wait_range, temp_wait_time);
                     }
                 }
             }
