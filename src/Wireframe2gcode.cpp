@@ -595,10 +595,13 @@ void Wireframe2gcode::processStartingCode()
             }
             if (scene_settings.get<bool>("material_print_temp_wait"))
             {
+                const double temp_wait_range = scene_settings.get<double>("material_print_temp_wait_range");
+                const double temp_wait_time = scene_settings.get<double>("material_print_temp_wait_time");
+
                 for (size_t extruder_nr = 0; extruder_nr < extruder_count; extruder_nr++)
                 {
                     const Temperature print_temp = scene_settings.get<Temperature>("material_print_temperature");
-                    gcode.writeTemperatureCommand(extruder_nr, print_temp, true);
+                    gcode.writeTemperatureCommand(extruder_nr, print_temp, true, temp_wait_range, temp_wait_time);
                 }
             }
         }

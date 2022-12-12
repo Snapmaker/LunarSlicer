@@ -487,7 +487,7 @@ public:
     
     void writeFanCommand(double speed);
     
-    void writeTemperatureCommand(const size_t extruder, const Temperature& temperature, const bool wait = false);
+    void writeTemperatureCommand(const size_t extruder, const Temperature& temperature, const bool wait = false, const double wait_range = -1.0, const double wait_time = -1.0);
     void writeBedTemperatureCommand(const Temperature& temperature, const bool wait = false);
     void writeBuildVolumeTemperatureCommand(const Temperature& temperature, const bool wait = false);
 
