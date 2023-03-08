@@ -1,4 +1,4 @@
-main ICON "CuraEngine.ico"
+main ICON "snapmaker-luban.ico"
 
 1 VERSIONINFO
 FILEVERSION     1,0,0,0
@@ -8,13 +8,13 @@ BEGIN
   BEGIN
     BLOCK "080904E4"
     BEGIN
-      VALUE "CompanyName", "Ultimaker BV."
-      VALUE "FileDescription", "Slicing engine for Cura"
+      VALUE "CompanyName", "Snapmaker BV."
+      VALUE "FileDescription", "LunarSlicer"
       VALUE "FileVersion", "1.0"
-      VALUE "InternalName", "CuraEngine"
-      VALUE "LegalCopyright", "Ultimaker BV."
-      VALUE "OriginalFilename", "CuraEngine.exe"
-      VALUE "ProductName", "CuraEngine"
+      VALUE "InternalName", "LunarSlicer"
+      VALUE "LegalCopyright", "Snapmaker BV."
+      VALUE "OriginalFilename", "LunarSlicer.exe"
+      VALUE "ProductName", "LunarSlicer"
       VALUE "ProductVersion", "1.0"
     END
   END
