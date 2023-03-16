@@ -1194,7 +1194,7 @@ void GCodeExport::writeFanCommand(double speed)
     current_fan_speed = speed;
 }
 
-void GCodeExport::writeTemperatureCommand(const size_t extruder, const Temperature& temperature, const bool wait)
+void GCodeExport::writeTemperatureCommand(const size_t extruder, const Temperature& temperature, const bool wait, const double wait_range, const double wait_time)
 {
     const ExtruderTrain& extruder_train = Application::getInstance().current_slice->scene.extruders[extruder];
 
@@ -1256,7 +1256,18 @@ void GCodeExport::writeTemperatureCommand(const size_t extruder, const Temperatu
 #ifdef ASSERT_INSANE_OUTPUT
     assert(temperature >= 0);
 #endif // ASSERT_INSANE_OUTPUT
-    *output_stream << " S" << PrecisionedDouble{ 1, temperature } << new_line;
+    if (wait && flavor != EGCodeFlavor::MAKERBOT) {
+        *output_stream << " S" << PrecisionedDouble{ 1, temperature };
+        if (wait_range >= 0) {
+            *output_stream << " C" << PrecisionedDouble{ 1, wait_range };
+        }
+        if (wait_time >= 0) {
+            *output_stream << " W" << PrecisionedDouble{ 1, wait_time };
+        }
+        *output_stream << new_line;
+    } else {
+        *output_stream << " S" << PrecisionedDouble{ 1, temperature } << new_line;
+    }
     if (extruder != current_extruder && always_write_active_tool)
     {
         // Some firmwares (ie Smoothieware) change tools every time a "T" command is read - even on a M104 line, so we need to switch back to the active tool.

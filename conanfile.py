@@ -35,7 +35,7 @@ class CuraEngineConan(ConanFile):
         "enable_extensive_warnings": [True, False]
     }
     default_options = {
-        "enable_arcus": True,
+        "enable_arcus": False,
         "enable_openmp": True,
         "enable_testing": False,
         "enable_benchmarks": False,
@@ -58,9 +58,9 @@ class CuraEngineConan(ConanFile):
 
     def configure(self):
         self.options["boost"].header_only = True
-        self.options["clipper"].shared = True
-        self.options["fmt"].shared = True
-        self.options["spdlog"].shared = True
+        self.options["clipper"].shared = False
+        self.options["fmt"].shared = False
+        self.options["spdlog"].shared = False
         if self.options.enable_arcus:
             self.options["arcus"].shared = True
             self.options["protobuf"].shared = True
