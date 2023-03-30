@@ -1774,7 +1774,7 @@ void LayerPlan::writeGCode(GCodeExport& gcode)
             }
 
             { // require printing temperature to be met
-                constexpr bool wait = true;
+                constexpr bool wait = false;
                 gcode.writeTemperatureCommand(extruder_nr, extruder_plan.required_start_temperature, wait);
             }
 
