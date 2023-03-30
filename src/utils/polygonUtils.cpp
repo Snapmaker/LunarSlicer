@@ -1486,4 +1486,52 @@ void PolygonUtils::fixSelfIntersections(const coord_t epsilon, Polygons& thiss)
     ClipperLib::SimplifyPolygons(thiss.paths);
 }
 
+Polygons PolygonUtils::offsetInlinePolygons(const coord_t epsilon, Polygons& thiss)
+{
+    Polygons polygons;
+    for (int i = 0; i < thiss.size(); ++i)
+    {
+        Polygon polygon;
+        if (thiss[i].area() > 0) {
+            for (int j = 0; j < thiss[i].size(); ++j)
+            {
+                if (j > 0) {
+                    auto size2 = vSize2(thiss[i][j] - thiss[i][j-1]);
+                    if (size2 < 10) {
+                        continue;
+                    }
+                }
+                polygon.add(thiss[i][j]);
+            }
+        } else {
+            auto res = thiss[i].offset(-epsilon);
+            ClipperLib::SimplifyPolygons(res.paths);
+            int k = 0;
+            double area = res[k].area();
+            for (int j = 1; j < res.size(); ++j)
+            {
+                if (res[j].area() > area) {
+                    k = j;
+                    area = res[j].area();
+                }
+            }
+            if (area > 0) {
+                res[k].reverse();
+            }
+            for (int j = 0; j < res[k].size(); ++j)
+            {
+                if (j > 0) {
+                    auto size2 = vSize2(res[k][j] - res[k][j-1]);
+                    if (size2 < 10) {
+                        continue;
+                    }
+                }
+                polygon.add(res[k][j]);
+            }
+        }
+        polygons.add(polygon);
+    }
+    return polygons;
+}
+
 } // namespace cura

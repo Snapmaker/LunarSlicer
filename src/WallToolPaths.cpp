@@ -64,6 +64,7 @@ const std::vector<VariableWidthLines>& WallToolPaths::generate()
     // Simplify outline for boost::voronoi consumption. Absolutely no self intersections or near-self intersections allowed:
     // TODO: Open question: Does this indeed fix all (or all-but-one-in-a-million) cases for manifold but otherwise possibly complex polygons?
     Polygons prepared_outline = outline.offset(-open_close_distance).offset(open_close_distance * 2).offset(-open_close_distance);
+//    prepared_outline.print();
     prepared_outline.removeSmallAreas(small_area_length * small_area_length, false);
     prepared_outline = Simplify(settings).polygon(prepared_outline);
     PolygonUtils::fixSelfIntersections(epsilon_offset, prepared_outline);
@@ -74,6 +75,8 @@ const std::vector<VariableWidthLines>& WallToolPaths::generate()
     prepared_outline.removeDegenerateVerts();
     prepared_outline = prepared_outline.unionPolygons();
     prepared_outline = Simplify(settings).polygon(prepared_outline);
+    prepared_outline = PolygonUtils::offsetInlinePolygons(10, prepared_outline);
+//    prepared_outline.print();
 
     if (prepared_outline.area() <= 0)
     {
