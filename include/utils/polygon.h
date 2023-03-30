@@ -775,6 +775,26 @@ public:
         paths.reserve(new_cap);
     }
 
+    void print() {
+        std::cout << "[";
+        for (int i = 0; i < this->paths.size(); ++i)
+        {
+            std::cout << "[";
+            for (int j = 0; j < this->paths[i].size(); ++j)
+            {
+                std::cout << this->paths[i][j].X << "," << this->paths[i][j].Y;
+                if (j != this->paths[i].size() - 1) {
+                    std::cout << ",";
+                }
+            }
+            std::cout << "]";
+            if (i != this->paths.size() - 1) {
+                std::cout << ",";
+            }
+        }
+        std::cout << "]" << std::endl;
+    }
+
     /*!
      * Convenience function to check if the polygon has no points.
      *

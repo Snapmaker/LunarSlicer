@@ -1486,4 +1486,50 @@ void PolygonUtils::fixSelfIntersections(const coord_t epsilon, Polygons& thiss)
     ClipperLib::SimplifyPolygons(thiss.paths);
 }
 
+Polygons PolygonUtils::offsetInlinePolygons(const coord_t epsilon, Polygons& thiss)
+{
+    auto copyPolygon = [](const PolygonRef& in_polygon, Polygon& out_polygon) {
+        double min_distance = 10;
+        out_polygon.add(in_polygon[0]);
+        for (int i = 1; i < in_polygon.size(); ++i)
+        {
+            if (vSize2(in_polygon[i] - in_polygon[i - 1]) < min_distance) {
+                continue;
+            }
+            if (i == in_polygon.size() - 1 && vSize2(in_polygon[i] - in_polygon[0]) < min_distance) {
+                continue;
+            }
+            out_polygon.add(in_polygon[i]);
+        }
+    };
+
+    Polygons outPolygons;
+    Polygons inPolygons;
+
+    for (int i = 0; i < thiss.size(); ++i)
+    {
+        if (thiss[i].area() > 0) {
+            Polygon polygon;
+            copyPolygon(thiss[i], polygon);
+            outPolygons.add(polygon);
+        } else {
+            Polygon polygon;
+            copyPolygon(thiss[i], polygon);
+            inPolygons.add(polygon);
+        }
+    }
+    inPolygons = inPolygons.intersection(outPolygons.offset(-epsilon));
+    ClipperLib::SimplifyPolygons(inPolygons.paths);
+    for (int i = 0; i < inPolygons.size(); ++i)
+    {
+        if (inPolygons[i].area() > 0) {
+            Polygon polygon;
+            copyPolygon(inPolygons[i], polygon);
+            polygon.reverse();
+            outPolygons.add(polygon);
+        }
+    }
+    return outPolygons;
+}
+
 } // namespace cura
