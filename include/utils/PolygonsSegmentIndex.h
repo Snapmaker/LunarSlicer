@@ -17,8 +17,13 @@ namespace cura
 class PolygonsSegmentIndex : public PolygonsPointIndex
 {
 public:
+    int color;
+
     PolygonsSegmentIndex();
+
     PolygonsSegmentIndex(const Polygons* polygons, unsigned int poly_idx, unsigned int point_idx);
+
+    PolygonsSegmentIndex(const Polygons* polygons, unsigned int poly_idx, unsigned int point_idx, int color);
 
     Point from() const;
 

@@ -51,6 +51,7 @@ class MeshFace
 public:
     int vertex_index[3] = {-1}; //!< counter-clockwise ordering
     int connected_face_index[3]; //!< same ordering as vertex_index (connected_face 0 is connected via vertex 0 and 1, etc.)
+    int color = 0;
 };
 
 
@@ -67,13 +68,15 @@ class Mesh
 public:
     std::vector<MeshVertex> vertices;//!< list of all vertices in the mesh
     std::vector<MeshFace> faces; //!< list of all faces in the mesh
+    std::set<int> face_colors;
+
     Settings settings;
     std::string mesh_name;
 
     Mesh(Settings& parent);
     Mesh();
 
-    void addFace(Point3& v0, Point3& v1, Point3& v2); //!< add a face to the mesh without settings it's connected_faces.
+    void addFace(Point3& v0, Point3& v1, Point3& v2, int color = 0); //!< add a face to the mesh without settings it's connected_faces.
     void clear(); //!< clears all data
     void finish(); //!< complete the model : set the connected_face_index fields of the faces.
 
@@ -115,6 +118,13 @@ public:
      * \return True if an interface of the mesh could be interlocking with another mesh
      */
     bool canInterlock() const;
+
+    bool isMultipleColor() const;
+
+    void copy(Mesh& mesh);
+
+    void setExtruderNr(int extruder_nr);
+
 private:
     mutable bool has_disconnected_faces; //!< Whether it has been logged that this mesh contains disconnected faces
     mutable bool has_overlapping_faces; //!< Whether it has been logged that this mesh contains overlapping faces

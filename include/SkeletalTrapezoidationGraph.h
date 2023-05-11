@@ -97,6 +97,39 @@ public:
      */
     std::pair<edge_t*, edge_t*> insertRib(edge_t& edge, node_t* mid_node);
 
+    void print() {
+        std::unordered_map<edge_t*, bool> use_edges;
+        std::cout << "[";
+        int c = 0;
+        for (edge_t& edge : this->edges)
+        {
+            c++;
+            edge_t* tmp = &edge;
+            if (use_edges[tmp]) {
+                continue;
+            }
+            while (tmp->prev != nullptr) {
+                tmp = tmp->prev;
+            }
+
+            std::cout << "[";
+            std::cout << tmp->from->p.X << "," << tmp->from->p.Y << ",";
+            while (true) {
+                std::cout << tmp->to->p.X << "," << tmp->to->p.Y;
+                use_edges[tmp] = true;
+
+                if (tmp->next == nullptr) {
+                    break;
+                }
+                std::cout << ",";
+
+                tmp = tmp->next;
+            }
+            std::cout << "]" << ",";
+        }
+        std::cout << "]" << std::endl;
+    }
+
 protected:
     std::pair<Point, Point> getSource(const edge_t& edge);
 };
