@@ -161,6 +161,8 @@ protected:
      */
     Polygons generateFilledAreaBelow(SliceLayerPart& part, size_t flooring_layer_count);
 
+    void skinPartHighPerformanceProcess(std::vector<Polygons>& input, Polygons& process_polys, int type, std::vector<Polygons>& out);
+
 protected:
     LayerIndex layer_nr; //!< The index of the layer for which to generate the skins and infill.
     SliceMeshStorage& mesh; //!< The storage where the layer outline information (input) is stored and where the skin insets and fill areas (output) are stored.
