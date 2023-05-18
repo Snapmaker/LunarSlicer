@@ -4,17 +4,15 @@
 #include <cmath> // std::ceil
 
 #include "Application.h" //To get settings.
-#include "Slice.h"
 #include "ExtruderTrain.h"
-#include "skin.h"
+#include "Slice.h"
 #include "infill.h"
-#include "sliceDataStorage.h"
-#include "settings/EnumSettings.h" //For EFillMethod.
 #include "settings/types/Angle.h" //For the infill support angle.
 #include "settings/types/Ratio.h"
+#include "skin.h"
+#include "sliceDataStorage.h"
 #include "utils/math.h"
 #include "utils/polygonUtils.h"
-#include "WallToolPaths.h"
 
 #define MIN_AREA_SIZE (0.4 * 0.4)
 
@@ -317,20 +315,46 @@ void SkinInfillAreaComputation::generateInfill(SliceLayerPart& part, const Polyg
  */
 void SkinInfillAreaComputation::generateRoofingFillAndSkinFill(SliceLayerPart& part)
 {
-    for(SkinPart& skin_part : part.skin_parts)
-    {
-        const size_t roofing_layer_count = std::min(mesh.settings.get<size_t>("roofing_layer_count"), mesh.settings.get<size_t>("top_layers"));
-        const coord_t skin_overlap = mesh.settings.get<coord_t>("skin_overlap_mm");
+    const size_t roofing_layer_count = std::min(mesh.settings.get<size_t>("roofing_layer_count"), mesh.settings.get<size_t>("top_layers"));
+    const coord_t skin_overlap = mesh.settings.get<coord_t>("skin_overlap_mm");
+    Polygons filled_area_above = generateFilledAreaAbove(part, roofing_layer_count);
 
-        Polygons filled_area_above = generateFilledAreaAbove(part, roofing_layer_count);
+    if (part.skin_parts.size() > 10) {
+        std::vector<Polygons> outline_list;
+        outline_list.resize(part.skin_parts.size());
+        for (int i = 0; i < part.skin_parts.size(); ++i)
+        {
+            outline_list[i] = part.skin_parts[i].outline;
+        }
 
-        skin_part.roofing_fill = skin_part.outline.difference(filled_area_above);
-        skin_part.skin_fill = skin_part.outline.intersection(filled_area_above);
+        std::vector<Polygons> roofing_fill_list;
+        std::vector<Polygons> skin_fill_list;
+        skinPartHighPerformanceProcess(outline_list, filled_area_above, 0, roofing_fill_list);
+        skinPartHighPerformanceProcess(outline_list, filled_area_above, 1, skin_fill_list);
 
-        // We remove offsets areas from roofing_fill anywhere they overlap with skin_fill.
-        // Otherwise, adjacent skin_fill and roofing_fill would have doubled offset areas. Since they both offset into each other.
-        skin_part.skin_fill = skin_part.skin_fill.offset(skin_overlap).difference(skin_part.roofing_fill);
-        skin_part.roofing_fill = skin_part.roofing_fill.offset(skin_overlap);
+        for (int i = 0; i < part.skin_parts.size(); ++i)
+        {
+            SkinPart& skin_part = part.skin_parts[i];
+            skin_part.roofing_fill = roofing_fill_list[i];
+            skin_part.skin_fill = skin_fill_list[i];
+            skin_part.skin_fill = skin_fill_list[i];
+
+            // We remove offsets areas from roofing_fill anywhere they overlap with skin_fill.
+            // Otherwise, adjacent skin_fill and roofing_fill would have doubled offset areas. Since they both offset into each other.
+            skin_part.skin_fill = skin_part.skin_fill.offset(skin_overlap).difference(skin_part.roofing_fill);
+            skin_part.roofing_fill = skin_part.roofing_fill.offset(skin_overlap);
+        }
+    } else {
+        for(SkinPart& skin_part : part.skin_parts)
+        {
+            skin_part.roofing_fill = skin_part.outline.difference(filled_area_above);
+            skin_part.skin_fill = skin_part.outline.intersection(filled_area_above);
+
+            // We remove offsets areas from roofing_fill anywhere they overlap with skin_fill.
+            // Otherwise, adjacent skin_fill and roofing_fill would have doubled offset areas. Since they both offset into each other.
+            skin_part.skin_fill = skin_part.skin_fill.offset(skin_overlap).difference(skin_part.roofing_fill);
+            skin_part.roofing_fill = skin_part.roofing_fill.offset(skin_overlap);
+        }
     }
 }
 
@@ -611,13 +635,82 @@ void SkinInfillAreaComputation::combineInfillLayers(SliceMeshStorage& mesh)
  */
 
 void SkinInfillAreaComputation::generateTopAndBottomMostSkinFill(SliceLayerPart &part) {
-
-    for (SkinPart& skin_part : part.skin_parts) {
+    if (part.skin_parts.size() > 10) {
         Polygons filled_area_above = generateFilledAreaAbove(part, 1);
-        skin_part.top_most_surface_fill = skin_part.outline.difference(filled_area_above);
-
         Polygons filled_area_below = generateFilledAreaBelow(part, 1);
-        skin_part.bottom_most_surface_fill = skin_part.skin_fill.difference(filled_area_below);
+        std::vector<Polygons> outline_list;
+        std::vector<Polygons> skin_fill_list;
+        outline_list.resize(part.skin_parts.size());
+        skin_fill_list.resize(part.skin_parts.size());
+
+        for (int i = 0; i < part.skin_parts.size(); ++i)
+        {
+            outline_list[i] = part.skin_parts[i].outline;
+            skin_fill_list[i] = part.skin_parts[i].skin_fill;
+        }
+
+        std::vector<Polygons> top_most_surface_fill_list;
+        std::vector<Polygons> bottom_most_surface_fill_list;
+
+        skinPartHighPerformanceProcess(outline_list, filled_area_above, 0, top_most_surface_fill_list);
+        skinPartHighPerformanceProcess(skin_fill_list, filled_area_below, 0, bottom_most_surface_fill_list);
+
+        for (int i = 0; i < part.skin_parts.size(); ++i)
+        {
+            SkinPart& skin_part = part.skin_parts[i];
+            skin_part.top_most_surface_fill = top_most_surface_fill_list[i];
+            skin_part.bottom_most_surface_fill = bottom_most_surface_fill_list[i];
+        }
+    } else {
+        Polygons filled_area_above = generateFilledAreaAbove(part, 1);
+        Polygons filled_area_below = generateFilledAreaBelow(part, 1);
+        for (SkinPart& skin_part : part.skin_parts) {
+            skin_part.top_most_surface_fill = skin_part.outline.difference(filled_area_above);
+
+            skin_part.bottom_most_surface_fill = skin_part.skin_fill.difference(filled_area_below);
+        }
+    }
+}
+void SkinInfillAreaComputation::skinPartHighPerformanceProcess(std::vector<Polygons>& input, Polygons& process_polys, int type, std::vector<Polygons>& out)
+{
+    std::vector<AABB> bbox;
+    Polygons input_polys;
+    for (int i = 0; i < input.size(); ++i)
+    {
+        input_polys.add(input[i]);
+        AABB aabb;
+        for (int j = 0; j < input[i].size(); ++j)
+        {
+            aabb.include(input[i][j]);
+        }
+        bbox.push_back(aabb);
+    }
+    if (type == 0) {
+        input_polys = input_polys.difference(process_polys);
+    } else {
+        input_polys = input_polys.intersection(process_polys);
+    }
+
+    out.resize(input.size());
+
+    if (input_polys.empty()) {
+        return;
+    }
+
+    for (int i = 0; i < input.size(); ++i)
+    {
+        Polygons& outline = input[i];
+        AABB& box = bbox[i];
+
+        for (int j = 0; j < input_polys.size(); ++j)
+        {
+            if (!box.contains(input_polys[j].front())) {
+                continue;
+            }
+            if (outline.inside(input_polys[j].front(), true) && outline.inside(input_polys[j][input_polys[j].size() / 2]), true) {
+                out[i].add(input_polys[j]);
+            }
+        }
     }
 }
 
