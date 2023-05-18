@@ -17,6 +17,7 @@
 #include "FffPolygonGenerator.h"
 #include "infill.h"
 #include "InterlockingGenerator.h"
+#include "MultiMaterialSegmentation.h"
 #include "layerPart.h"
 #include "MeshGroup.h"
 #include "Mold.h"
@@ -195,6 +196,8 @@ bool FffPolygonGenerator::sliceModel(MeshGroup* meshgroup, TimeKeeper& timeKeepe
     }
 
     std::vector<Slicer*> slicerList;
+    std::vector<Mesh> color_meshes;
+    std::vector<Slicer*> color_slicer_list;
     for (unsigned int mesh_idx = 0; mesh_idx < meshgroup->meshes.size(); mesh_idx++)
     {
         // Check if adaptive layers is populated to prevent accessing a method on NULL
@@ -207,6 +210,16 @@ bool FffPolygonGenerator::sliceModel(MeshGroup* meshgroup, TimeKeeper& timeKeepe
         Mesh& mesh = meshgroup->meshes[mesh_idx];
         Slicer* slicer = new Slicer(&mesh, layer_thickness, slice_layer_count, use_variable_layer_heights, adaptive_layer_height_values);
 
+        if (mesh.settings.get<bool>("colorful_slicing_enable") && mesh.isMultipleColor()) {
+            Slicer* color_slicer = new Slicer();
+            color_meshes.emplace_back();
+            auto& color_mesh = color_meshes.back();
+            color_slicer->mesh = &color_mesh;
+            color_mesh.copy(mesh);
+            color_mesh.setExtruderNr(1);
+            MultiMaterialSegmentation::multiMaterialSegmentationByPainting(slicer, color_slicer);
+            color_slicer_list.push_back(color_slicer);
+        }
         slicerList.push_back(slicer);
 
         /*
@@ -219,6 +232,20 @@ bool FffPolygonGenerator::sliceModel(MeshGroup* meshgroup, TimeKeeper& timeKeepe
         */
 
         Progress::messageProgress(Progress::Stage::SLICING, mesh_idx + 1, meshgroup->meshes.size());
+    }
+
+    if (!color_meshes.empty()) {
+        std::cout << "color_meshes" << std::endl;
+        for (int i = 0; i < color_meshes.size(); ++i)
+        {
+            meshgroup->meshes.push_back(color_meshes[i]);
+            meshgroup->meshes.back().copy(color_meshes[i]);
+            slicerList.push_back(color_slicer_list[i]);
+        }
+        for (int i = 0; i < slicerList.size(); ++i)
+        {
+            slicerList[i]->mesh = &meshgroup->meshes[i];
+        }
     }
 
     // Clear the mesh face and vertex data, it is no longer needed after this point, and it saves a lot of memory.

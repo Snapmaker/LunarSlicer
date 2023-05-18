@@ -755,6 +755,15 @@ void Settings::setParent(Settings* new_parent)
     parent = new_parent;
 }
 
+void Settings::copy(Settings& s)
+{
+    this->setParent(s.parent);
+    for (auto iterator = s.settings.begin(); iterator != s.settings.end(); ++iterator)
+    {
+        this->settings[iterator->first] = iterator->second;
+    }
+}
+
 std::string Settings::getWithoutLimiting(const std::string& key) const
 {
     if (settings.find(key) != settings.end())

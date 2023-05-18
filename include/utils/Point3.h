@@ -120,6 +120,14 @@ public:
         return x*p.x + y*p.y + z*p.z;
     }
 
+    Point3 cross(const Point3& p) const
+    {
+        return Point3(
+            y*p.z-z*p.y,
+            z*p.x-x*p.z,
+            x*p.y-y*p.x);
+    }
+
     coord_t& operator[] (const size_t index)
     {
         assert(index < 3);

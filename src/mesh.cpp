@@ -27,7 +27,7 @@ Mesh::Mesh() : settings(), has_disconnected_faces(false), has_overlapping_faces(
 {
 }
 
-void Mesh::addFace(Point3& v0, Point3& v1, Point3& v2)
+void Mesh::addFace(Point3& v0, Point3& v1, Point3& v2, int color)
 {
     int vi0 = findIndexOfVertex(v0);
     int vi1 = findIndexOfVertex(v1);
@@ -41,6 +41,9 @@ void Mesh::addFace(Point3& v0, Point3& v1, Point3& v2)
     face.vertex_index[0] = vi0;
     face.vertex_index[1] = vi1;
     face.vertex_index[2] = vi2;
+    face.color = color;
+    this->face_colors.insert(color);
+
     vertices[face.vertex_index[0]].connected_faces.push_back(idx);
     vertices[face.vertex_index[1]].connected_faces.push_back(idx);
     vertices[face.vertex_index[2]].connected_faces.push_back(idx);
@@ -108,6 +111,29 @@ bool Mesh::isPrinted() const
 bool Mesh::canInterlock() const
 {
     return ! settings.get<bool>("infill_mesh") && ! settings.get<bool>("anti_overhang_mesh");
+}
+
+bool Mesh::isMultipleColor() const
+{
+    return this->face_colors.size() > 1;
+}
+
+void Mesh::copy(Mesh& mesh)
+{
+    this->aabb = mesh.aabb;
+    this->mesh_name = mesh.mesh_name;
+    this->settings.copy(mesh.settings);
+}
+
+void Mesh::setExtruderNr(int extruder_nr)
+{
+    auto s = std::to_string(extruder_nr);
+    this->settings.add("wall_extruder_nr", s);
+    this->settings.add("wall_0_extruder_nr", s);
+    this->settings.add("wall_x_extruder_nr", s);
+    this->settings.add("roofing_extruder_nr", s);
+    this->settings.add("top_bottom_extruder_nr", s);
+    this->settings.add("infill_extruder_nr", s);
 }
 
 int Mesh::findIndexOfVertex(const Point3& v)
