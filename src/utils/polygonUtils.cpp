@@ -1532,4 +1532,54 @@ Polygons PolygonUtils::offsetInlinePolygons(const coord_t epsilon, Polygons& thi
     return outPolygons;
 }
 
+void PolygonUtils::splitToSimplePolygons(Polygons& polygons, std::vector<Polygons>& out)
+{
+    ClipperLib::SimplifyPolygons(polygons.paths);
+    if (polygons.size() <= 1) {
+        out.push_back(polygons);
+        return;
+    }
+    std::vector<std::pair<int, double>> index_area_sorts;
+    for (int i = 0; i < polygons.size(); ++i)
+    {
+        index_area_sorts.emplace_back(i, polygons[i].area());
+    }
+    std::sort(index_area_sorts.begin(), index_area_sorts.end(), [](std::pair<int, int> a, std::pair<int, int> b) {
+                  return std::abs(a.second) > std::abs(b.second);
+    });
+    for (int i = 0; i < index_area_sorts.size(); ++i)
+    {
+        if (index_area_sorts[i].second > 0) {
+            out.emplace_back();
+            out.back().add(polygons[index_area_sorts[i].first]);
+        } else {
+            bool is_add = false;
+            for (int j = 0; j < out.size(); ++j)
+            {
+               Point p = polygons[index_area_sorts[i].first].front();
+               if(out[j].inside(p)) {
+                    out[j].add(polygons[index_area_sorts[i].first]);
+                    is_add = true;
+                    break;
+               }
+            }
+            if (!is_add) {
+                out.emplace_back();
+                out.back().add(polygons[index_area_sorts[i].first]);
+                out.back().back().reverse();
+            }
+        }
+    }
+}
+
+void PolygonUtils::simplePolygons(Polygons& polygons)
+{
+    ClipperLib::SimplifyPolygons(polygons.paths);
+}
+
+Polygons PolygonUtils::removeSmallAreas(Polygons& polygons, coord_t offset)
+{
+    return polygons.offset(-offset).offset(offset).intersection(polygons);
+}
+
 } // namespace cura

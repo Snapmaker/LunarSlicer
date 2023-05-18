@@ -12,6 +12,7 @@
 #include "settings/EnumSettings.h"
 #include "settings/types/LayerIndex.h"
 #include "slicer.h"
+#include "utils/Constant.h"
 #include "utils/Simplify.h"
 #include "utils/SparsePointGridInclusive.h"
 #include "utils/ThreadPool.h"
@@ -34,8 +35,6 @@ void SlicerLayer::makeBasicPolygonLoops(Polygons& open_polylines)
             makeBasicPolygonLoop(open_polylines, start_segment_idx);
         }
     }
-    // Clear the segmentList to save memory, it is no longer needed after this point.
-    segments.clear();
 }
 
 void SlicerLayer::makeBasicPolygonLoop(Polygons& open_polylines, const size_t start_segment_idx)
@@ -726,6 +725,14 @@ ClosePolygonResult SlicerLayer::findPolygonPointClosestTo(Point input)
     return ret;
 }
 
+bool SlicerLayer::hasColoredSegments()
+{
+    if (color_segments_set.size() <= 1 && color_segments_set.find(MESH_NO_PAINTING_COLOR) != color_segments_set.end()) {
+        return false;
+    }
+    return true;
+}
+
 void SlicerLayer::makePolygons(const Mesh* mesh)
 {
     Polygons open_polylines;
@@ -733,6 +740,10 @@ void SlicerLayer::makePolygons(const Mesh* mesh)
     makeBasicPolygonLoops(open_polylines);
 
     connectOpenPolylines(open_polylines);
+
+    if (!mesh->settings.get<bool>("colorful_slicing_enable") || !hasColoredSegments()) {
+        segments.clear();
+    }
 
     // TODO: (?) for mesh surface mode: connect open polygons. Maybe the above algorithm can create two open polygons which are actually connected when the starting segment is in the middle between the two open polygons.
 
@@ -769,7 +780,9 @@ void SlicerLayer::makePolygons(const Mesh* mesh)
     polygons.erase(it, polygons.end());
 
     // Finally optimize all the polygons. Every point removed saves time in the long run.
-    polygons = Simplify(mesh->settings).polygon(polygons);
+    if (!mesh->settings.get<bool>("colorful_slicing_enable") || !hasColoredSegments()) {
+        polygons = Simplify(mesh->settings).polygon(polygons);
+    }
 
     polygons.removeDegenerateVerts(); // remove verts connected to overlapping line segments
 
@@ -783,6 +796,7 @@ void SlicerLayer::makePolygons(const Mesh* mesh)
 Slicer::Slicer(Mesh* i_mesh, const coord_t thickness, const size_t slice_layer_count, bool use_variable_layer_heights, std::vector<AdaptiveLayer>* adaptive_layers) : mesh(i_mesh)
 {
     const SlicingTolerance slicing_tolerance = mesh->settings.get<SlicingTolerance>("slicing_tolerance");
+    const bool colorful_slicing_enable = mesh->settings.get<bool>("colorful_slicing_enable");
     const coord_t initial_layer_thickness = Application::getInstance().current_slice->scene.current_mesh_group->settings.get<coord_t>("layer_height_0");
 
     assert(slice_layer_count > 0);
@@ -791,10 +805,13 @@ Slicer::Slicer(Mesh* i_mesh, const coord_t thickness, const size_t slice_layer_c
 
     layers = buildLayersWithHeight(slice_layer_count, slicing_tolerance, initial_layer_thickness, thickness, use_variable_layer_heights, adaptive_layers);
 
-
     std::vector<std::pair<int32_t, int32_t>> zbbox = buildZHeightsForFaces(*mesh);
 
     buildSegments(*mesh, zbbox, slicing_tolerance, layers);
+
+    if (colorful_slicing_enable) {
+        buildColorFace(*mesh, zbbox, layers);
+    }
 
     spdlog::info("Slice of mesh took {:3} seconds", slice_timer.restart());
 
@@ -928,7 +945,9 @@ void Slicer::buildSegments(const Mesh& mesh, const std::vector<std::pair<int32_t
                                s.faceIndex = mesh_idx;
                                s.endOtherFaceIdx = face.connected_face_index[end_edge_idx];
                                s.addedToPolygon = false;
+                               s.color = face.color;
                                layer.segments.push_back(s);
+                               layer.color_segments_set.insert(face.color);
                            }
                        });
 }
@@ -953,6 +972,7 @@ std::vector<SlicerLayer>
         adjusted_layer_offset = initial_layer_thickness + (thickness / 2);
     }
 
+    layers_res[0].min_z = 0;
     // define all layer z positions (depending on slicing mode, see above)
     for (unsigned int layer_nr = 1; layer_nr < slice_layer_count; layer_nr++)
     {
@@ -964,7 +984,10 @@ std::vector<SlicerLayer>
         {
             layers_res[layer_nr].z = adjusted_layer_offset + (thickness * (layer_nr - 1));
         }
+        layers_res[layer_nr - 1].max_z = layers_res[layer_nr].z;
+        layers_res[layer_nr].min_z = layers_res[layer_nr - 1].z;
     }
+    layers_res.back().max_z = layers_res.back().z + thickness;
 
     return layers_res;
 }
@@ -1108,6 +1131,29 @@ coord_t Slicer::interpolate(const coord_t x, const coord_t x0, const coord_t x1,
     coord_t num = (y1 - y0) * (x - x0);
     num += num > 0 ? dx_01 / 4 : -dx_01 / 4; // add in offset to round result
     return y0 + num / dx_01;
+}
+
+void Slicer::buildColorFace(const Mesh& mesh, std::vector<std::pair<int32_t, int32_t>>& zbbox, std::vector<SlicerLayer>& layers)
+{
+    cura::parallel_for(layers,
+                       [&](auto layer_it) {
+                           SlicerLayer& layer = *layer_it;
+                           const int32_t& min_z = layer.min_z;
+                           const int32_t& max_z = layer.max_z;
+
+                           for (int i = 0; i < mesh.faces.size(); ++i)
+                           {
+                               if (mesh.faces[i].color <= MESH_NO_PAINTING_COLOR) {
+                                   continue;
+                               }
+                               if ((max_z < zbbox[i].first) || (min_z > zbbox[i].second))
+                               {
+                                   continue;
+                               }
+
+                               layer.color_faces_idx.emplace_back(i);
+                           }
+                       });
 }
 
 

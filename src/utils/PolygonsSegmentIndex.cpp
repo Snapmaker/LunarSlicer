@@ -10,11 +10,13 @@ PolygonsSegmentIndex::PolygonsSegmentIndex() : PolygonsPointIndex() {}
 
 PolygonsSegmentIndex::PolygonsSegmentIndex(const Polygons* polygons, unsigned int poly_idx, unsigned int point_idx) : PolygonsPointIndex(polygons, poly_idx, point_idx) {}
 
+PolygonsSegmentIndex::PolygonsSegmentIndex(const Polygons* polygons, unsigned int poly_idx, unsigned int point_idx, int color) : PolygonsPointIndex(polygons, poly_idx, point_idx),color(color) {}
+
 Point PolygonsSegmentIndex::from() const
 {
     return PolygonsPointIndex::p();
 }
-    
+
 Point PolygonsSegmentIndex::to() const
 {
     return PolygonsSegmentIndex::next().p();

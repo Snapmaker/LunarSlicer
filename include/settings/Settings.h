@@ -95,6 +95,8 @@ public:
      */
     void setParent(Settings* new_parent);
 
+    void copy(Settings& settings);
+
 private:
     /*!
      * Optionally, a parent setting container to ask for the value of a setting

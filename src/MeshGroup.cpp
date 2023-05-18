@@ -9,6 +9,7 @@
 
 #include "MeshGroup.h"
 #include "settings/types/Ratio.h" //For the shrinkage percentage and scale factor.
+#include "utils/Constant.h"
 #include "utils/FMatrix4x3.h" //To transform the input meshes for shrinkage compensation and to align in command line mode.
 #include "utils/floatpoint.h" //To accept incoming meshes with floating point vertices.
 #include "utils/gettime.h"
@@ -202,7 +203,14 @@ bool loadMeshSTL_binary(Mesh* mesh, const char* filename, const FMatrix4x3& matr
         Point3 v0 = matrix.apply(FPoint3(v[0], v[1], v[2]));
         Point3 v1 = matrix.apply(FPoint3(v[3], v[4], v[5]));
         Point3 v2 = matrix.apply(FPoint3(v[6], v[7], v[8]));
-        mesh->addFace(v0, v1, v2);
+
+        int color = ((char *) (buffer + 49))[0];
+        if (color < MESH_PAINTING_COLOR) {
+            color = MESH_NO_PAINTING_COLOR;
+        } else {
+            color = MESH_PAINTING_COLOR;
+        }
+        mesh->addFace(v0, v1, v2, color);
     }
     fclose(f);
     mesh->finish();

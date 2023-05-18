@@ -150,6 +150,13 @@ INLINE int angle(const Point& p)
     return angle;
 }
 
+INLINE double angleDouble(const Point& p)
+{
+    double angle = std::atan2(p.X, p.Y) / M_PI * 180.0;
+    if (angle < 0.0) angle += 360.0;
+    return angle;
+}
+
 // Identity function, used to be able to make templated algorithms where the input is sometimes points, sometimes things that contain or can be converted to points.
 INLINE const Point& make_point(const Point& p)
 {

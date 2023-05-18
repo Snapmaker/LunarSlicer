@@ -31,6 +31,11 @@ public:
     // with the vertex that it ended on.
     const MeshVertex* endVertex = nullptr;
     bool addedToPolygon = false;
+    int color = 0;
+
+    Point& operator[](int i) {
+        return i == 0 ? start : end;
+    }
 };
 
 class ClosePolygonResult
@@ -54,9 +59,13 @@ class SlicerLayer
 {
 public:
     std::vector<SlicerSegment> segments;
+    std::set<int> color_segments_set;
     std::unordered_map<int, int> face_idx_to_segment_idx; // topology
+    std::vector<int> color_faces_idx;
 
     int z = -1;
+    int min_z = -1;
+    int max_z = -1;
     Polygons polygons;
     Polygons openPolylines;
 
@@ -66,6 +75,8 @@ public:
      * segments. The face data is used.
      */
     void makePolygons(const Mesh* mesh);
+
+    bool hasColoredSegments();
 
 protected:
     /*!
@@ -493,7 +504,7 @@ public:
 
     Slicer(Mesh* mesh, const coord_t thickness, const size_t slice_layer_count, bool use_variable_layer_heights, std::vector<AdaptiveLayer> *adaptive_layers);
 
-
+    Slicer() {};
 private:
 
     /*!
@@ -565,6 +576,7 @@ private:
         std::vector<SlicerLayer>& layers
     );
 
+    static void buildColorFace(const Mesh& mesh, std::vector<std::pair<int32_t, int32_t>>& zbbox, std::vector<SlicerLayer>& layers);
 };
 
 }//namespace cura

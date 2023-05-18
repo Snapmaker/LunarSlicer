@@ -752,6 +752,15 @@ public:
         poly = std::move(other.poly);
         return *this;
     }
+
+    void sortArea(bool is_CCW = true) {
+        if (is_CCW && area() < 0) {
+            std::reverse(poly.begin(), poly.end());
+        }
+        if (!is_CCW && area() > 0) {
+            std::reverse(poly.begin(), poly.end());
+        }
+    }
 };
 
 class PolygonsPart;
@@ -775,7 +784,10 @@ public:
         paths.reserve(new_cap);
     }
 
-    void print() {
+    void print(std::string s = "") const {
+        if (s != "") {
+            std::cout << s << std::endl;
+        }
         std::cout << "[";
         for (int i = 0; i < this->paths.size(); ++i)
         {
