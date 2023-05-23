@@ -64,6 +64,9 @@ void MultiMaterialSegmentation::paintingSlicerLayers(Slicer* slicer, Slicer* col
 
     int top_parallel_size = std::ceil(static_cast<double>(layers.size()) / top_layers);
     int bottom_parallel_size = std::ceil(static_cast<double>(layers.size()) / bottom_layers);
+
+    std::vector<Polygons> colored_faces_polys_list(layers.size());
+
     for (int i = 0; i < top_layers; ++i)
     {
         cura::parallel_for<int>(0,
@@ -83,7 +86,7 @@ void MultiMaterialSegmentation::paintingSlicerLayers(Slicer* slicer, Slicer* col
                                     for (int k = layer_nr - 1; k >= std::max(0, layer_nr - top_layers + 1); --k)
                                     {
                                         intersection_outline_polys = intersection_outline_polys.intersection(layers[k].polygons);
-                                        m_colored_faces_polys_list[k].add(m_colored_top_faces_polys_list[layer_nr].intersection(intersection_outline_polys.offset(width)));
+                                        colored_faces_polys_list[k].add(m_colored_top_faces_polys_list[layer_nr].intersection(intersection_outline_polys.offset(width)));
 
                                         width -= wall_inner_line_width;
                                     }
@@ -108,7 +111,7 @@ void MultiMaterialSegmentation::paintingSlicerLayers(Slicer* slicer, Slicer* col
                                     for (int k = layer_nr + 1; k <= std::min((int)layers.size() - 1, layer_nr + top_layers - 1); ++k)
                                     {
                                         intersection_outline_polys = intersection_outline_polys.intersection(layers[k].polygons);
-                                        m_colored_faces_polys_list[k].add(m_colored_bottom_faces_polys_list[layer_nr].intersection(intersection_outline_polys.offset(width)));
+                                        colored_faces_polys_list[k].add(m_colored_bottom_faces_polys_list[layer_nr].intersection(intersection_outline_polys.offset(width)));
 
                                         width -= wall_inner_line_width;
                                     }
@@ -117,10 +120,16 @@ void MultiMaterialSegmentation::paintingSlicerLayers(Slicer* slicer, Slicer* col
 
     cura::parallel_for<int>(0,
                             (int)layers.size(),
+                            [&](int layer_nr) {
+                                colored_faces_polys_list[layer_nr] = colored_faces_polys_list[layer_nr].unionPolygons();
+                                colored_faces_polys_list[layer_nr] = PolygonUtils::simplifyByScale(colored_faces_polys_list[layer_nr], wall_inner_line_width);
+                                m_colored_faces_polys_list[layer_nr] = m_colored_faces_polys_list[layer_nr].unionPolygons(colored_faces_polys_list[layer_nr]);
+                            });
+
+    cura::parallel_for<int>(0,
+                            (int)layers.size(),
                             [&](int layer_nr)
                             {
-                                m_colored_faces_polys_list[layer_nr] = m_colored_faces_polys_list[layer_nr].unionPolygons();
-
                                 Polygons offset_polys = layers[layer_nr].polygons.offset(-wall_outer_line_width);
                                 Polygons wall_outline_line_polys = layers[layer_nr].polygons.difference(offset_polys);
 
