@@ -41,6 +41,9 @@ void MultiMaterialSegmentation::paintingSlicerLayers(Slicer* slicer, Slicer* col
 
     coord_t z_h = MM2INT(1);
 
+    int c_idx = 1;
+    int n_idx = 0;
+
     cura::parallel_for<int>(0,
                             (int)layers.size(),
                             [&](int layer_nr)
@@ -55,17 +58,17 @@ void MultiMaterialSegmentation::paintingSlicerLayers(Slicer* slicer, Slicer* col
 
                                 // Top
                                 Polygons colored_top_faces_polys = paintingSlicerLayerColoredFaces(layers[layer_nr], p_mesh, layers[layer_nr].z, top_z);
-                                m_colored_top_faces_polys_list[layer_nr] = colored_top_faces_polys.intersection(top_diff_polys);
+                                m_colored_skin_top_faces_polys_list[c_idx][layer_nr] = colored_top_faces_polys.intersection(top_diff_polys);
+                                m_colored_skin_top_faces_polys_list[n_idx][layer_nr] = top_diff_polys.difference(m_colored_skin_top_faces_polys_list[c_idx][layer_nr].offset(10));
 
                                 // Bottom
                                 Polygons colored_bottom_faces_polys = paintingSlicerLayerColoredFaces(layers[layer_nr], p_mesh, bottom_z, layers[layer_nr].z);
-                                m_colored_bottom_faces_polys_list[layer_nr] = colored_bottom_faces_polys.intersection(bottom_diff_polys);
+                                m_colored_skin_bottom_faces_polys_list[c_idx][layer_nr] = colored_bottom_faces_polys.intersection(bottom_diff_polys);
+                                m_colored_skin_bottom_faces_polys_list[n_idx][layer_nr] = bottom_diff_polys.difference(m_colored_skin_bottom_faces_polys_list[c_idx][layer_nr].offset(10));
                             });
 
     int top_parallel_size = std::ceil(static_cast<double>(layers.size()) / top_layers);
     int bottom_parallel_size = std::ceil(static_cast<double>(layers.size()) / bottom_layers);
-
-    std::vector<Polygons> colored_faces_polys_list(layers.size());
 
     for (int i = 0; i < top_layers; ++i)
     {
@@ -79,14 +82,16 @@ void MultiMaterialSegmentation::paintingSlicerLayers(Slicer* slicer, Slicer* col
                                         return;
                                     }
 
-                                    m_colored_faces_polys_list[layer_nr].add(m_colored_top_faces_polys_list[layer_nr]);
-
                                     Polygons intersection_outline_polys = layers[layer_nr].polygons;
                                     coord_t width = -wall_outer_line_width;
                                     for (int k = layer_nr - 1; k >= std::max(0, layer_nr - top_layers + 1); --k)
                                     {
                                         intersection_outline_polys = intersection_outline_polys.intersection(layers[k].polygons);
-                                        colored_faces_polys_list[k].add(m_colored_top_faces_polys_list[layer_nr].intersection(intersection_outline_polys.offset(width)));
+                                        for (int l = 0; l < 2; ++l)
+                                        {
+                                            Polygons inter_polys = m_colored_skin_top_faces_polys_list[l][layer_nr].intersection(intersection_outline_polys.offset(width));
+                                            m_colored_infill_faces_polys_list[l][k].add(PolygonUtils::simplifyByScale(inter_polys, wall_inner_line_width));
+                                        }
 
                                         width -= wall_inner_line_width;
                                     }
@@ -104,14 +109,18 @@ void MultiMaterialSegmentation::paintingSlicerLayers(Slicer* slicer, Slicer* col
                                     {
                                         return;
                                     }
-                                    m_colored_faces_polys_list[layer_nr].add(m_colored_bottom_faces_polys_list[layer_nr]);
 
                                     Polygons intersection_outline_polys = layers[layer_nr].polygons;
                                     coord_t width = -wall_outer_line_width;
                                     for (int k = layer_nr + 1; k <= std::min((int)layers.size() - 1, layer_nr + top_layers - 1); ++k)
                                     {
                                         intersection_outline_polys = intersection_outline_polys.intersection(layers[k].polygons);
-                                        colored_faces_polys_list[k].add(m_colored_bottom_faces_polys_list[layer_nr].intersection(intersection_outline_polys.offset(width)));
+
+                                        for (int l = 0; l < 2; ++l)
+                                        {
+                                            Polygons inter_polys = m_colored_skin_bottom_faces_polys_list[l][layer_nr].intersection(intersection_outline_polys.offset(width));
+                                            m_colored_infill_faces_polys_list[l][k].add(PolygonUtils::simplifyByScale(inter_polys, wall_inner_line_width));
+                                        }
 
                                         width -= wall_inner_line_width;
                                     }
@@ -120,32 +129,43 @@ void MultiMaterialSegmentation::paintingSlicerLayers(Slicer* slicer, Slicer* col
 
     cura::parallel_for<int>(0,
                             (int)layers.size(),
-                            [&](int layer_nr) {
-                                colored_faces_polys_list[layer_nr] = colored_faces_polys_list[layer_nr].unionPolygons();
-                                colored_faces_polys_list[layer_nr] = PolygonUtils::simplifyByScale(colored_faces_polys_list[layer_nr], wall_inner_line_width);
-                                m_colored_faces_polys_list[layer_nr] = m_colored_faces_polys_list[layer_nr].unionPolygons(colored_faces_polys_list[layer_nr]);
+                            [&](int layer_nr)
+                            {
+                                for (int i = 0; i < 2; ++i)
+                                {
+                                    m_colored_infill_faces_polys_list[i][layer_nr] = m_colored_infill_faces_polys_list[i][layer_nr].unionPolygons();
+                                    m_colored_faces_polys_list[i][layer_nr] =
+                                        m_colored_infill_faces_polys_list[i][layer_nr].unionPolygons(m_colored_skin_top_faces_polys_list[i][layer_nr]).unionPolygons(m_colored_skin_bottom_faces_polys_list[i][layer_nr]);
+                                }
                             });
 
     cura::parallel_for<int>(0,
                             (int)layers.size(),
                             [&](int layer_nr)
                             {
+                                if (layer_nr == 224)
+                                {
+                                    m_colored_lines_polys_list[layer_nr].print();
+                                }
+                                m_colored_lines_polys_list[layer_nr] = m_colored_lines_polys_list[layer_nr].difference(m_colored_faces_polys_list[n_idx][layer_nr]);
+                                if (layer_nr == 224)
+                                {
+                                    m_colored_lines_polys_list[layer_nr].print();
+                                }
                                 Polygons offset_polys = layers[layer_nr].polygons.offset(-wall_outer_line_width);
-                                Polygons wall_outline_line_polys = layers[layer_nr].polygons.difference(offset_polys);
-
-                                Polygons top_diff_polys = layer_nr < (layers.size() - 1) ? layers[layer_nr].polygons.difference(layers[layer_nr + 1].polygons) : layers[layer_nr].polygons;
-                                Polygons no_colored_top_skin_polys = top_diff_polys.difference(m_colored_top_faces_polys_list[layer_nr]);
-                                no_colored_top_skin_polys = no_colored_top_skin_polys.difference(m_colored_faces_polys_list[layer_nr]);
-                                m_colored_lines_polys_list[layer_nr] = m_colored_lines_polys_list[layer_nr].difference(no_colored_top_skin_polys.difference(wall_outline_line_polys));
-                                m_colored_lines_polys_list[layer_nr] = m_colored_lines_polys_list[layer_nr].difference(PolygonUtils::simplifyByScale(no_colored_top_skin_polys, wall_outer_line_width));
-
-
-                                Polygons bottom_diff_polys = layer_nr > 0 ? layers[layer_nr].polygons.difference(layers[layer_nr - 1].polygons) : layers[layer_nr].polygons;
-                                Polygons no_colored_bottom_skin_polys = bottom_diff_polys.difference(m_colored_bottom_faces_polys_list[layer_nr]);
-                                no_colored_bottom_skin_polys = no_colored_bottom_skin_polys.difference(m_colored_faces_polys_list[layer_nr]);
-                                m_colored_lines_polys_list[layer_nr] = m_colored_lines_polys_list[layer_nr].difference(no_colored_bottom_skin_polys.difference(wall_outline_line_polys));
-                                m_colored_lines_polys_list[layer_nr] = m_colored_lines_polys_list[layer_nr].difference(PolygonUtils::simplifyByScale(no_colored_bottom_skin_polys, wall_outer_line_width));
-
+                                //                                Polygons wall_outline_line_polys = layers[layer_nr].polygons.difference(offset_polys);
+                                //
+                                //                                Polygons top_diff_polys = layer_nr < (layers.size() - 1) ? layers[layer_nr].polygons.difference(layers[layer_nr + 1].polygons) : layers[layer_nr].polygons;
+                                //                                Polygons no_colored_top_skin_polys = top_diff_polys.difference(m_colored_faces_polys_list[layer_nr]);
+                                //                                m_colored_lines_polys_list[layer_nr] = m_colored_lines_polys_list[layer_nr].difference(no_colored_top_skin_polys.difference(wall_outline_line_polys));
+                                //                                m_colored_lines_polys_list[layer_nr] = m_colored_lines_polys_list[layer_nr].difference(PolygonUtils::simplifyByScale(no_colored_top_skin_polys, wall_outer_line_width));
+                                //
+                                //
+                                //                                Polygons bottom_diff_polys = layer_nr > 0 ? layers[layer_nr].polygons.difference(layers[layer_nr - 1].polygons) : layers[layer_nr].polygons;
+                                //                                Polygons no_colored_bottom_skin_polys = bottom_diff_polys.difference(m_colored_faces_polys_list[layer_nr]);
+                                //                                m_colored_lines_polys_list[layer_nr] = m_colored_lines_polys_list[layer_nr].difference(no_colored_bottom_skin_polys.difference(wall_outline_line_polys));
+                                //                                m_colored_lines_polys_list[layer_nr] = m_colored_lines_polys_list[layer_nr].difference(PolygonUtils::simplifyByScale(no_colored_bottom_skin_polys, wall_outer_line_width));
+                                //
                                 if (m_colored_lines_polys_list[layer_nr].size() > 1)
                                 {
                                     std::vector<Polygons> split_polys;
@@ -166,7 +186,7 @@ void MultiMaterialSegmentation::paintingSlicerLayers(Slicer* slicer, Slicer* col
 
     for (int i = 0; i < layers.size(); ++i)
     {
-        Polygons colored_polys = m_colored_faces_polys_list[i].unionPolygons(m_colored_lines_polys_list[i]);
+        Polygons colored_polys = m_colored_faces_polys_list[c_idx][i].unionPolygons(m_colored_lines_polys_list[i]);
         Polygons no_colored_polys = layers[i].polygons.difference(colored_polys.offset(10));
         color_slicer->layers[i].polygons = colored_polys;
         layers[i].polygons = no_colored_polys;
@@ -500,7 +520,7 @@ Polygons MultiMaterialSegmentation::paintingSlicerLayerColoredFaces(SlicerLayer&
 
         double cos = normal.dot(z_p) / std::sqrt(normal.vSize2());
         double angle = std::acos(cos);
-        if (angle > M_PI / 3 && angle < M_PI / 3 * 2)
+        if (angle > M_PI / 180 * 89 && angle < M_PI / 180 * 91)
         {
             continue;
         }

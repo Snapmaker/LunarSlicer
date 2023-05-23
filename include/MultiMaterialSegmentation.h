@@ -39,18 +39,28 @@ class MultiMaterialSegmentation
     int scale = 1;
 
     std::vector<Polygons> m_colored_lines_polys_list;
-    std::vector<Polygons> m_colored_top_faces_polys_list;
-    std::vector<Polygons> m_colored_bottom_faces_polys_list;
-    std::vector<Polygons> m_colored_faces_polys_list;
+    std::vector<std::vector<Polygons>> m_colored_skin_top_faces_polys_list;
+    std::vector<std::vector<Polygons>> m_colored_skin_bottom_faces_polys_list;
+    std::vector<std::vector<Polygons>> m_colored_infill_faces_polys_list;
+    std::vector<std::vector<Polygons>> m_colored_faces_polys_list;
 
 public:
     MultiMaterialSegmentation(size_t size)
     {
         m_colored_lines_polys_list.resize(size);
 
-        m_colored_top_faces_polys_list.resize(size);
-        m_colored_bottom_faces_polys_list.resize(size);
-        m_colored_faces_polys_list.resize(size);
+        m_colored_skin_top_faces_polys_list.resize(2);
+        m_colored_skin_bottom_faces_polys_list.resize(2);
+        m_colored_infill_faces_polys_list.resize(2);
+        m_colored_faces_polys_list.resize(2);
+
+        for (int i = 0; i < 2; ++i)
+        {
+            m_colored_skin_top_faces_polys_list[i].resize(size);
+            m_colored_skin_bottom_faces_polys_list[i].resize(size);
+            m_colored_infill_faces_polys_list[i].resize(size);
+            m_colored_faces_polys_list[i].resize(size);
+        }
     };
 
     static void multiMaterialSegmentationByPainting(Slicer* slicer, Slicer* color_slicer);
