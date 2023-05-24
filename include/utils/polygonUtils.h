@@ -614,7 +614,7 @@ public:
 
     static void simplePolygons(Polygons& polygons);
 
-    static Polygons removeSmallAreas(Polygons& polygons, coord_t offset);
+    static Polygons simplifyByScale(Polygons& polygons, coord_t offset);
 private:
     /*!
      * Helper function for PolygonUtils::moveInside2: moves a point \p from which was moved onto \p closest_polygon_point towards inside/outside when it's not already inside/outside by enough distance.

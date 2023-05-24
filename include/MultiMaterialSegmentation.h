@@ -47,6 +47,7 @@ public:
     MultiMaterialSegmentation(size_t size)
     {
         m_colored_lines_polys_list.resize(size);
+
         m_colored_top_faces_polys_list.resize(size);
         m_colored_bottom_faces_polys_list.resize(size);
         m_colored_faces_polys_list.resize(size);
