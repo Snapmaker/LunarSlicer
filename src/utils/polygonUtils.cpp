@@ -1577,7 +1577,7 @@ void PolygonUtils::simplePolygons(Polygons& polygons)
     ClipperLib::SimplifyPolygons(polygons.paths);
 }
 
-Polygons PolygonUtils::removeSmallAreas(Polygons& polygons, coord_t offset)
+Polygons PolygonUtils::simplifyByScale(Polygons& polygons, coord_t offset)
 {
     return polygons.offset(-offset).offset(offset).intersection(polygons);
 }
