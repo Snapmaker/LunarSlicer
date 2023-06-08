@@ -1,6 +1,5 @@
 #include "MultiMaterialSegmentation.h"
 #include "Application.h"
-#include "BoostInterface.hpp"
 #include "Scene.h"
 #include "Slice.h"
 #include "boost/polygon/voronoi.hpp"

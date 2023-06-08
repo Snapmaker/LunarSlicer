@@ -15,6 +15,7 @@
 #include "utils/PolygonsSegmentIndex.h"
 #include "utils/ExtrusionJunction.h"
 #include "utils/ExtrusionLine.h"
+#include "utils/PolygonsVoronoi.h"
 #include "settings/types/Ratio.h"
 #include "SkeletalTrapezoidationEdge.h"
 #include "SkeletalTrapezoidationJoint.h"
@@ -77,8 +78,6 @@ class SkeletalTrapezoidation
     const BeadingStrategy& beading_strategy;
 
 public:
-    using Segment = PolygonsSegmentIndex;
-
     /*!
      * Construct a new trapezoidation problem to solve.
      * \param polys The shapes to fill with walls.
@@ -153,13 +152,17 @@ protected:
      */
     void constructFromPolygons(const Polygons& polys);
 
+    void tryGenerateVoronoi(const Polygons& polygons, PolygonsVoronoi& polygons_voronoi);
+
+    bool checkVoronoiDistance(PolygonsVoronoi& polygons_voronoi);
+
     /*!
      * mapping each voronoi VD edge to the corresponding halfedge HE edge
      * In case the result segment is discretized, we map the VD edge to the *last* HE edge
      */
-    std::unordered_map<vd_t::edge_type*, edge_t*> vd_edge_to_he_edge;
-    std::unordered_map<vd_t::vertex_type*, node_t*> vd_node_to_he_node;
-    node_t& makeNode(vd_t::vertex_type& vd_node, Point p); //!< Get the node which the VD node maps to, or create a new mapping if there wasn't any yet.
+    std::unordered_map<PolygonsVoronoi::Edge*, edge_t*> vd_edge_to_he_edge;
+    std::unordered_map<PolygonsVoronoi::Vertex*, node_t*> vd_node_to_he_node;
+    node_t& makeNode(PolygonsVoronoi::Vertex& vd_node, Point p); //!< Get the node which the VD node maps to, or create a new mapping if there wasn't any yet.
 
     /*!
      * (Eventual) returned 'polylines per index' result (from generateToolpaths):
@@ -172,7 +175,7 @@ protected:
      * Transfer an edge from the VD to the HE and perform discretization of parabolic edges (and vertex-vertex edges)
      * \p prev_edge serves as input and output. May be null as input.
      */
-    void transferEdge(Point from, Point to, vd_t::edge_type& vd_edge, edge_t*& prev_edge, Point& start_source_point, Point& end_source_point, const std::vector<Point>& points, const std::vector<Segment>& segments);
+    void transferEdge(Point from, Point to, PolygonsVoronoi::Edge& vd_edge, edge_t*& prev_edge, Point& start_source_point, Point& end_source_point, const std::vector<Point>& points, const std::vector<Segment>& segments);
 
     /*!
      * Discretize a Voronoi edge that represents the medial axis of a vertex-
@@ -199,7 +202,7 @@ protected:
      * \return A number of coordinates along the edge where the edge is broken
      * up into discrete pieces.
      */
-    std::vector<Point> discretize(const vd_t::edge_type& segment, const std::vector<Point>& points, const std::vector<Segment>& segments);
+    std::vector<Point> discretize(const PolygonsVoronoi::Edge& segment, const std::vector<Point>& points, const std::vector<Segment>& segments);
 
     /*!
      * Compute the range of line segments that surround a cell of the skeletal
