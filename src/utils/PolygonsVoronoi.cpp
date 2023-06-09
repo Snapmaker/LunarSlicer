@@ -90,25 +90,32 @@ void PolygonsVoronoi::convertToPolygonsCell(vd_t::cell_type& vd_cell, Segments& 
 //    std::cout << ",";
 }
 
-bool PolygonsVoronoi::searchStartAndEnd(vd_t::cell_type& vd_cell, vd_t::edge_type*& p_start_vd_edge, vd_t::edge_type*& p_end_vd_edge, const vd_t::vertex_type* source_start_p, const vd_t::vertex_type* source_end_p)
+bool PolygonsVoronoi::searchStartAndEnd(vd_t::cell_type& vd_cell, vd_t::edge_type*& p_start_vd_edge, vd_t::edge_type*& p_end_vd_edge, vd_t::vertex_type* source_start_p, vd_t::vertex_type* source_end_p)
 {
     vd_t::edge_type* p_vd_edge = vd_cell.incident_edge();
 
     do
     {
-        if (p_vd_edge->is_finite()) {
-            if (vdVertexEqual(p_vd_edge->vertex0(), source_start_p)) {
-                p_start_vd_edge = p_vd_edge;
-            }
-            if (vdVertexEqual(p_vd_edge->vertex1(), source_end_p)) {
-                p_end_vd_edge = p_vd_edge;
-            }
-        } else {
+        if (p_vd_edge->is_infinite()) {
             if (p_vd_edge->is_secondary()) {
                 if (!p_vd_edge->vertex0() && ! vdVertexEqual(p_vd_edge->vertex1(), source_start_p)) {
                     p_start_vd_edge = p_vd_edge;
                 }
                 if (!p_vd_edge->vertex1() && ! vdVertexEqual(p_vd_edge->vertex0(), source_end_p)) {
+                    p_end_vd_edge = p_vd_edge;
+                }
+            }
+        } else {
+            if (vdVertexEqual(p_vd_edge->vertex0(), source_start_p)) {
+                p_start_vd_edge = p_vd_edge;
+            } else if (vdVertexEqual(p_vd_edge->vertex1(), source_end_p)) {
+                p_end_vd_edge = p_vd_edge;
+            } else if (p_vd_edge->is_secondary() && !vdVertexEqual(p_vd_edge->vertex1(), source_start_p) && !vdVertexEqual(p_vd_edge->vertex0(), source_end_p)) {
+                pos_t area1 = computeArea(source_start_p, p_vd_edge->vertex0(), p_vd_edge->vertex1());
+                pos_t area2 = computeArea(source_end_p, p_vd_edge->vertex0(), p_vd_edge->vertex1());
+                if (std::abs(area1) < std::abs(area2)) {
+                    p_start_vd_edge = p_vd_edge;
+                } else {
                     p_end_vd_edge = p_vd_edge;
                 }
             }
@@ -136,6 +143,11 @@ bool PolygonsVoronoi::checkInsidePolygons(vd_t::edge_type* p_start_vd_edge, vd_t
     }
 
     return false;
+}
+
+double PolygonsVoronoi::computeArea(vd_t::vertex_type* p0, vd_t::vertex_type* p1, vd_t::vertex_type* p2)
+{
+    return p0->x() * p1->y() - p0->y() * p1->x() + p1->x() * p2->y() - p1->y() * p2->x() + p2->x() * p0->y() - p2->y() * p0->x();
 }
 
 } // namespace cura

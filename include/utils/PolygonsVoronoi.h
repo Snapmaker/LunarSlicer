@@ -259,11 +259,13 @@ private:
         m_vertices_map[*vertex] = &this->m_vertices.back();
         return &this->m_vertices.back();
     }
-    bool searchStartAndEnd(vd_t::cell_type& vd_cell, vd_t::edge_type*& p_start_edge, vd_t::edge_type*& p_end_edge, const vd_t::vertex_type* source_start_point, const vd_t::vertex_type* source_end_point);
+    bool searchStartAndEnd(vd_t::cell_type& vd_cell, vd_t::edge_type*& p_start_edge, vd_t::edge_type*& p_end_edge, vd_t::vertex_type* source_start_point, vd_t::vertex_type* source_end_point);
 
     bool vdVertexEqual(const vd_t::vertex_type* p_vertex1, const vd_t::vertex_type* p_vertex2);
 
     bool checkInsidePolygons(vd_t::edge_type* p_start_vd_edge, vd_t::edge_type* p_end_vd_edge, const Polygons& polygons);
+
+    double computeArea(vd_t::vertex_type* p0, vd_t::vertex_type* p1, vd_t::vertex_type* p2);
 };
 
 

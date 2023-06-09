@@ -46,7 +46,7 @@ void SkeletalTrapezoidation::transferEdge(Point from, Point to, PolygonsVoronoi:
         edge_t* source_twin = he_edge_it->second;
         assert(source_twin);
         auto end_node_it = vd_node_to_he_node.find(vd_edge.vertex1());
-        assert(end_node_it != vd_node_to_he_node2.end());
+        assert(end_node_it != vd_node_to_he_node.end());
         node_t* end_node = end_node_it->second;
         for (edge_t* twin = source_twin;; twin = twin->prev->twin->prev)
         {
@@ -380,6 +380,7 @@ void SkeletalTrapezoidation::constructFromPolygons(const Polygons& polys)
 
     std::vector<Point> points; // Remains empty
 
+
     std::vector<Segment> segments;
     polygonsToSegments(polys, segments);
 
@@ -438,10 +439,14 @@ void SkeletalTrapezoidation::tryGenerateVoronoi(const Polygons& polygons, Polygo
 
     if (!checkVoronoiDistance(polygons_voronoi)) {
         Polygons new_polys = polygons.offset(10);
-//        new_polys.print();
         segments.clear();
         polygonsToSegments(new_polys, segments);
         polygons_voronoi.constructVoronoi(segments, new_polys);
+
+        if (!checkVoronoiDistance(polygons_voronoi)) {
+            spdlog::debug("Error for parse voronoi");
+            new_polys.print();
+        }
     }
 }
 
