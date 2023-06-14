@@ -306,6 +306,30 @@ Polygons Polygons::intersectionPolyLines(const Polygons& polylines, bool restitc
     return ret;
 }
 
+Polygons Polygons::intersectionOpenPolygons(const Polygons& open_polylines) const
+{
+    ClipperLib::PolyTree result;
+    ClipperLib::Clipper clipper(clipper_init);
+    clipper.AddPaths(open_polylines.paths, ClipperLib::ptSubject, false);
+    clipper.AddPaths(paths, ClipperLib::ptClip, true);
+    clipper.Execute(ClipperLib::ctIntersection, result);
+    Polygons ret;
+    ClipperLib::OpenPathsFromPolyTree(result, ret.paths);
+    return ret;
+}
+
+Polygons Polygons::differenceOpenPolygons(const Polygons& open_polylines) const
+{
+    ClipperLib::PolyTree result;
+    ClipperLib::Clipper clipper(clipper_init);
+    clipper.AddPaths(open_polylines.paths, ClipperLib::ptSubject, false);
+    clipper.AddPaths(paths, ClipperLib::ptClip, true);
+    clipper.Execute(ClipperLib::ctDifference, result);
+    Polygons ret;
+    ClipperLib::OpenPathsFromPolyTree(result, ret.paths);
+    return ret;
+}
+
 void Polygons::toPolylines()
 {
     for (PolygonRef poly : *this)

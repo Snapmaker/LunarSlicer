@@ -52,14 +52,16 @@ public:
         m_colored_faces_polys_list.resize(size);
     };
 
-    static void multiMaterialSegmentationByPainting(Slicer* slicer, Slicer* color_slicer);
+    static void paintingSlicer(Slicer* slicer, Slicer* color_slicer);
 
 private:
     void paintingSlicerLayers(Slicer* slicer, Slicer* color_slicer);
 
     Polygons paintingSlicerLayerColoredLines(SlicerLayer& slicer_layer);
 
-    void paintingPolygonByColorLinePolygons(Polygons& polys, Polygons& color_line_polys, Polygons& color_polys, std::vector<Segment>& color_segments);
+    void coloredLineSegmentMatching(Polygons& polys, Polygons& color_line_polys, Polygons& out_color_polys, std::vector<Segment>& out_color_segments);
+
+    void coloredLineSegmentMatching2(Polygons& polys, Polygons& color_line_polys, Polygons& out_color_polys, std::vector<Segment>& out_color_segments);
 
     Polygons toVoronoiColorPolygons(std::vector<Segment>& colored_segments);
 

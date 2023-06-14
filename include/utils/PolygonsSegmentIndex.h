@@ -36,7 +36,7 @@ public:
 using Segment = PolygonsSegmentIndex;
 using Segments = std::vector<Segment>;
 
-static INLINE void polygonsToSegments(const Polygons& polygons, Segments& segments) {
+INLINE void polygonsToSegments(const Polygons& polygons, Segments& segments) {
     for (int i = 0; i < polygons.size(); ++i)
     {
         for (int j = 0; j < polygons[i].size(); ++j)

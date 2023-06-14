@@ -1030,6 +1030,10 @@ public:
      */
     Polygons intersectionPolyLines(const Polygons& polylines, bool restitch = true, const coord_t max_stitch_distance = 10_mu) const;
 
+    Polygons intersectionOpenPolygons(const Polygons& open_polylines) const;
+
+    Polygons differenceOpenPolygons(const Polygons& open_polylines) const;
+
     /*!
      * Add the front to each polygon so that the polygon is represented as a polyline
      */

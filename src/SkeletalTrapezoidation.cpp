@@ -385,7 +385,7 @@ void SkeletalTrapezoidation::constructFromPolygons(const Polygons& polys)
     polygonsToSegments(polys, segments);
 
     PolygonsVoronoi polygons_voronoi;
-    tryGenerateVoronoi(polys, polygons_voronoi);
+    tryGenerateVoronoi(polys, segments, polygons_voronoi);
 
     for (PolygonsVoronoi::Cell cell : polygons_voronoi.cells())
     {
@@ -431,21 +431,19 @@ void SkeletalTrapezoidation::constructFromPolygons(const Polygons& polys)
     }
 }
 
-void SkeletalTrapezoidation::tryGenerateVoronoi(const Polygons& polygons, PolygonsVoronoi& polygons_voronoi)
+void SkeletalTrapezoidation::tryGenerateVoronoi(const Polygons& polygons, Segments& segments, PolygonsVoronoi& polygons_voronoi)
 {
-    Segments segments;
     polygonsToSegments(polygons, segments);
     polygons_voronoi.constructVoronoi(segments, polygons);
 
-    if (!checkVoronoiDistance(polygons_voronoi)) {
-        Polygons new_polys = polygons.offset(10);
+    if (!checkVoronoiDistance(polygons_voronoi) || !checkVoronoiEdgeTwin(polygons_voronoi)) {
+        tmp_polys = polygons.offset(10);
         segments.clear();
-        polygonsToSegments(new_polys, segments);
-        polygons_voronoi.constructVoronoi(segments, new_polys);
+        polygonsToSegments(tmp_polys, segments);
+        polygons_voronoi.constructVoronoi(segments, tmp_polys);
 
-        if (!checkVoronoiDistance(polygons_voronoi)) {
+        if (!checkVoronoiDistance(polygons_voronoi) || !checkVoronoiEdgeTwin(polygons_voronoi)) {
             spdlog::debug("Error for parse voronoi");
-            new_polys.print();
         }
     }
 }
@@ -463,6 +461,21 @@ bool SkeletalTrapezoidation::checkVoronoiDistance(PolygonsVoronoi& polygons_voro
             if (dist == 0) {
                 return false;
             }
+        }
+    }
+    return true;
+}
+
+bool SkeletalTrapezoidation::checkVoronoiEdgeTwin(PolygonsVoronoi& polygons_voronoi)
+{
+    for (const auto& item : polygons_voronoi.cells())
+    {
+        PolygonsVoronoi::Edge* e = item.incident_edge()->next();
+        while (e != item.incident_edge()) {
+            if (!e->twin()) {
+                return false;
+            }
+            e = e->next();
         }
     }
     return true;

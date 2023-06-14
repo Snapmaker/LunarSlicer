@@ -77,6 +77,8 @@ class SkeletalTrapezoidation
      */
     const BeadingStrategy& beading_strategy;
 
+    Polygons tmp_polys;
+
 public:
     /*!
      * Construct a new trapezoidation problem to solve.
@@ -152,7 +154,7 @@ protected:
      */
     void constructFromPolygons(const Polygons& polys);
 
-    void tryGenerateVoronoi(const Polygons& polygons, PolygonsVoronoi& polygons_voronoi);
+    void tryGenerateVoronoi(const Polygons& polygons, Segments& segments, PolygonsVoronoi& polygons_voronoi);
 
     bool checkVoronoiDistance(PolygonsVoronoi& polygons_voronoi);
 
@@ -596,6 +598,8 @@ protected:
      * Genrate small segments for local maxima where the beading would only result in a single bead
      */
     void generateLocalMaximaSingleBeads();
+
+    bool checkVoronoiEdgeTwin(PolygonsVoronoi& polygons_voronoi);
 };
 
 } // namespace cura

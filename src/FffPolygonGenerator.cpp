@@ -217,7 +217,7 @@ bool FffPolygonGenerator::sliceModel(MeshGroup* meshgroup, TimeKeeper& timeKeepe
             color_slicer->mesh = &color_mesh;
             color_mesh.copy(mesh);
             color_mesh.setExtruderNr(1);
-            MultiMaterialSegmentation::multiMaterialSegmentationByPainting(slicer, color_slicer);
+            MultiMaterialSegmentation::paintingSlicer(slicer, color_slicer);
             color_slicer_list.push_back(color_slicer);
         }
         slicerList.push_back(slicer);
