@@ -436,15 +436,18 @@ void SkeletalTrapezoidation::tryGenerateVoronoi(const Polygons& polygons, Segmen
     polygonsToSegments(polygons, segments);
     polygons_voronoi.constructVoronoi(segments, polygons);
 
-    if (!checkVoronoiDistance(polygons_voronoi) || !checkVoronoiEdgeTwin(polygons_voronoi)) {
-        tmp_polys = polygons.offset(10);
-        segments.clear();
-        polygonsToSegments(tmp_polys, segments);
-        polygons_voronoi.constructVoronoi(segments, tmp_polys);
-
+    int try_count = 2;
+    while (try_count > 0) {
         if (!checkVoronoiDistance(polygons_voronoi) || !checkVoronoiEdgeTwin(polygons_voronoi)) {
-            spdlog::debug("Error for parse voronoi");
+            spdlog::debug("Check error for parse voronoi for try_count: %d", try_count);
+            tmp_polys = polygons.offset(10);
+            segments.clear();
+            polygonsToSegments(tmp_polys, segments);
+            polygons_voronoi.constructVoronoi(segments, tmp_polys);
+        } else {
+            break;
         }
+        try_count--;
     }
 }
 
