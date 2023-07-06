@@ -24,7 +24,9 @@ void PolygonsVoronoi::constructVoronoi(Segments& segments, const Polygons& polyg
         convertToPolygonsCell(cell, segments, polygons);
     }
 
-//    std::cout << std::endl;
+    removeSmallEdge();
+
+    //    std::cout << std::endl;
     m_edges_map.clear();
     m_vertices_map.clear();
 }
@@ -57,7 +59,7 @@ void PolygonsVoronoi::convertToPolygonsCell(vd_t::cell_type& vd_cell, Segments& 
 
     Cell* cell = getCell(&vd_cell);
 
-    vd_t::vertex_type* last_point = nullptr;
+    vd_t::vertex_type* last_point;
 
 //    if (vd_cell.contains_point()) {
 //        cell->incident_edge(getEdge(cell, p_start_vd_edge, &source_start_p, p_start_vd_edge->vertex1(), false));
@@ -148,6 +150,74 @@ bool PolygonsVoronoi::checkInsidePolygons(vd_t::edge_type* p_start_vd_edge, vd_t
 double PolygonsVoronoi::computeArea(vd_t::vertex_type* p0, vd_t::vertex_type* p1, vd_t::vertex_type* p2)
 {
     return p0->x() * p1->y() - p0->y() * p1->x() + p1->x() * p2->y() - p1->y() * p2->x() + p2->x() * p0->y() - p2->y() * p0->x();
+}
+
+void PolygonsVoronoi::removeSmallEdge()
+{
+    std::unordered_map<Vertex*, std::vector<Edge*>> vertex_edges_map;
+
+    std::unordered_map<Edge*, bool> small_edges;
+
+    auto add_to_map = [&vertex_edges_map](Vertex* vertex, Edge* edge){
+        if (vertex_edges_map.find(vertex) == vertex_edges_map.end()) {
+            vertex_edges_map[vertex] = std::vector<Edge*>();
+        }
+        vertex_edges_map[vertex].emplace_back(edge);
+    };
+
+    for (Cell cell : m_cells)
+    {
+        Edge* begin = cell.incident_edge();
+        for (auto *edge = begin->next(); edge != begin; edge = edge->next())
+        {
+            Point const p0 = VoronoiUtils::p(edge->vertex0());
+            Point const p1 = VoronoiUtils::p(edge->vertex1());
+            if (p0 == p1) {
+                small_edges[edge] = false;
+            }
+            add_to_map(edge->vertex0(), edge);
+            add_to_map(edge->vertex1(), edge);
+        }
+    }
+
+    if (!small_edges.empty()) {
+        for (const auto& item : small_edges)
+        {
+            if (item.second) {
+                continue ;
+            }
+            auto *small_edge = item.first;
+            if (small_edge->isSource()) {
+                continue ;
+            }
+            small_edges[small_edge] = true;
+            assert(small_edges.find(small_edge->twin()) != small_edges.end());
+            small_edges[small_edge->twin()] = true;
+
+            bool const is_v0 = small_edge->vertex1()->isSource();
+            auto *remove_vertex = is_v0 ? small_edge->vertex0() : small_edge->vertex1();
+            auto *replace_vertex = is_v0 ? small_edge->vertex1() : small_edge->vertex0();
+            std::vector<Edge*> const edges = vertex_edges_map[remove_vertex];
+
+            for (auto *edge : edges)
+            {
+                if (edge->vertex0() == remove_vertex) {
+                    edge->vertex0(replace_vertex);
+                } else {
+                    edge->vertex1(replace_vertex);
+                }
+            }
+
+            auto *prev_edge = small_edge->prev();
+            auto *next_edge = small_edge->next();
+            prev_edge->next(next_edge);
+            next_edge->prev(prev_edge);
+            auto *twin_prev_edge = small_edge->twin()->prev();
+            auto *twin_next_edge = small_edge->twin()->next();
+            twin_prev_edge->next(twin_next_edge);
+            twin_next_edge->prev(twin_prev_edge);
+        }
+    }
 }
 
 } // namespace cura

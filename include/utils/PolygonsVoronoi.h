@@ -92,9 +92,11 @@ public:
 
         Vertex* vertex0() { return m_vertex_0; }
         const Vertex* vertex0() const { return m_vertex_0; }
+        void vertex0(Vertex* v) { m_vertex_0 = v; }
 
         Vertex* vertex1() { return m_vertex_1; }
         const Vertex* vertex1() const { return m_vertex_1; }
+        void vertex1(Vertex* v) { m_vertex_1 = v; }
 
         Edge* twin() { return m_twin; }
         const Edge* twin() const { return m_twin; };
@@ -266,6 +268,7 @@ private:
     bool checkInsidePolygons(vd_t::edge_type* p_start_vd_edge, vd_t::edge_type* p_end_vd_edge, const Polygons& polygons);
 
     double computeArea(vd_t::vertex_type* p0, vd_t::vertex_type* p1, vd_t::vertex_type* p2);
+    void removeSmallEdge();
 };
 
 

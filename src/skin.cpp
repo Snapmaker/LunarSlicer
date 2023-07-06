@@ -319,7 +319,8 @@ void SkinInfillAreaComputation::generateRoofingFillAndSkinFill(SliceLayerPart& p
     const coord_t skin_overlap = mesh.settings.get<coord_t>("skin_overlap_mm");
     Polygons filled_area_above = generateFilledAreaAbove(part, roofing_layer_count);
 
-    if (part.skin_parts.size() > 10) {
+    // FIXME
+    if (part.skin_parts.size() > 10000000) {
         std::vector<Polygons> outline_list;
         outline_list.resize(part.skin_parts.size());
         for (int i = 0; i < part.skin_parts.size(); ++i)
