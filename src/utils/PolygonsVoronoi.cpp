@@ -170,8 +170,8 @@ void PolygonsVoronoi::removeSmallEdge()
         Edge* begin = cell.incident_edge();
         for (auto *edge = begin->next(); edge != begin; edge = edge->next())
         {
-            Point const p0 = VoronoiUtils::p(edge->vertex0());
-            Point const p1 = VoronoiUtils::p(edge->vertex1());
+            Point p0 = VoronoiUtils::p(edge->vertex0());
+            Point p1 = VoronoiUtils::p(edge->vertex1());
             if (p0 == p1) {
                 small_edges[edge] = false;
             }
@@ -181,7 +181,7 @@ void PolygonsVoronoi::removeSmallEdge()
     }
 
     if (!small_edges.empty()) {
-        for (const auto& item : small_edges)
+        for (auto& item : small_edges)
         {
             if (item.second) {
                 continue ;
@@ -194,10 +194,10 @@ void PolygonsVoronoi::removeSmallEdge()
             assert(small_edges.find(small_edge->twin()) != small_edges.end());
             small_edges[small_edge->twin()] = true;
 
-            bool const is_v0 = small_edge->vertex1()->isSource();
+            bool is_v0 = small_edge->vertex1()->isSource();
             auto *remove_vertex = is_v0 ? small_edge->vertex0() : small_edge->vertex1();
             auto *replace_vertex = is_v0 ? small_edge->vertex1() : small_edge->vertex0();
-            std::vector<Edge*> const edges = vertex_edges_map[remove_vertex];
+            std::vector<Edge*> edges = vertex_edges_map[remove_vertex];
 
             for (auto *edge : edges)
             {
