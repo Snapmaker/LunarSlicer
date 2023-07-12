@@ -220,4 +220,24 @@ void PolygonsVoronoi::removeSmallEdge()
     }
 }
 
+void PolygonsVoronoi::print()
+{
+    std::cout << "[";
+    for (const auto& cell : m_cells)
+    {
+        std::cout << "[";
+        auto e = cell.incident_edge();
+        do
+        {
+            std::cout << e->vertex0()->x() << "," << e->vertex0()->y();
+            e = e->next();
+            if (e != cell.incident_edge()) {
+                std::cout << ",";
+            }
+        } while (e != cell.incident_edge());
+        std::cout << "],";
+    }
+    std::cout << "[]]" << std::endl;
+}
+
 } // namespace cura

@@ -196,6 +196,8 @@ public:
 
     void constructVoronoi(Segments& segments, const Polygons& polygons);
 
+    void print();
+
 private:
     void convertToPolygonsCell(vd_t::cell_type& vd_cell, Segments& segments, const Polygons& polygons);
 
