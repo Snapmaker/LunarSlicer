@@ -27,8 +27,8 @@ void PolygonsVoronoi::constructVoronoi(Segments& segments, const Polygons& polyg
     removeSmallEdge();
 
     //    std::cout << std::endl;
-    m_edges_map.clear();
-    m_vertices_map.clear();
+    m_edges_idx_map.clear();
+    m_vertices_idx_map.clear();
 }
 
 void PolygonsVoronoi::convertToPolygonsCell(vd_t::cell_type& vd_cell, Segments& segments,const Polygons& polygons)
@@ -57,36 +57,32 @@ void PolygonsVoronoi::convertToPolygonsCell(vd_t::cell_type& vd_cell, Segments& 
         return;
     }
 
-    Cell* cell = getCell(&vd_cell);
+    int cell_idx = getCell(this, &vd_cell);
 
-    vd_t::vertex_type* last_point;
+    vd_t::vertex_type last_point(0, 0);
 
-//    if (vd_cell.contains_point()) {
-//        cell->incident_edge(getEdge(cell, p_start_vd_edge, &source_start_p, p_start_vd_edge->vertex1(), false));
-//        last_point = p_start_vd_edge->vertex1();
-//        p_start_vd_edge = p_start_vd_edge->next();
-//    } else {
-    cell->incident_edge(getEdge(cell, &source_end_p, &source_start_p, true));
-    last_point = &source_start_p;
-//    }
+    int first_edge_idx = getEdge(this, cell_idx, &source_end_p, &source_start_p, true);
+    m_cells[cell_idx].incident_edge_idx(first_edge_idx);
 
-    Edge* last_edge = cell->incident_edge();
+    int last_edge_idx = first_edge_idx;
+    last_point = source_start_p;
 
     while (p_start_vd_edge != p_end_vd_edge) {
-        Edge* edge = getEdge(cell, p_start_vd_edge, last_point, p_start_vd_edge->vertex1());
-        last_edge->next(edge);
-        edge->prev(last_edge);
+        int edge_idx = getEdge(this, cell_idx, p_start_vd_edge, &last_point, p_start_vd_edge->vertex1());
+        m_edges[last_edge_idx].nextIdx(edge_idx);
+        m_edges[edge_idx].prevIdx(last_edge_idx);
 
-        last_edge = edge;
-        last_point = last_edge->vertex1();
+        last_edge_idx = edge_idx;
+        last_point = vd_t::vertex_type(m_edges[edge_idx].vertex1()->x(), m_edges[edge_idx].vertex1()->y());
         p_start_vd_edge = p_start_vd_edge->next();
     }
 
-    Edge* edge = getEdge(cell, p_end_vd_edge, p_end_vd_edge->vertex0(), &source_end_p);
-    edge->prev(last_edge);
-    last_edge->next(edge);
-    edge->next(cell->incident_edge());
-    cell->incident_edge()->prev(edge);
+    int edge_idx = getEdge(this, cell_idx, p_end_vd_edge, p_end_vd_edge->vertex0(), &source_end_p);
+    m_edges[edge_idx].prevIdx(last_edge_idx);
+    m_edges[last_edge_idx].nextIdx(edge_idx);
+
+    m_edges[edge_idx].nextIdx(first_edge_idx);
+    m_edges[first_edge_idx].prevIdx(edge_idx);
 
 //    cell->print();
 //    std::cout << ",";
@@ -154,15 +150,15 @@ double PolygonsVoronoi::computeArea(vd_t::vertex_type* p0, vd_t::vertex_type* p1
 
 void PolygonsVoronoi::removeSmallEdge()
 {
-    std::unordered_map<Vertex*, std::vector<Edge*>> vertex_edges_map;
+    std::unordered_map<int, std::set<int>> vertex_edges_map;
 
     std::unordered_map<Edge*, bool> small_edges;
 
-    auto add_to_map = [&vertex_edges_map](Vertex* vertex, Edge* edge){
-        if (vertex_edges_map.find(vertex) == vertex_edges_map.end()) {
-            vertex_edges_map[vertex] = std::vector<Edge*>();
+    auto add_to_map = [&vertex_edges_map](int vertex_idx, int edge_idx){
+        if (vertex_edges_map.find(vertex_idx) == vertex_edges_map.end()) {
+            vertex_edges_map[vertex_idx] = std::set<int>();
         }
-        vertex_edges_map[vertex].emplace_back(edge);
+        vertex_edges_map[vertex_idx].insert(edge_idx);
     };
 
     for (Cell cell : m_cells)
@@ -175,8 +171,8 @@ void PolygonsVoronoi::removeSmallEdge()
             if (p0 == p1) {
                 small_edges[edge] = false;
             }
-            add_to_map(edge->vertex0(), edge);
-            add_to_map(edge->vertex1(), edge);
+            add_to_map(edge->vertex0()->idx, edge->idx);
+            add_to_map(edge->vertex1()->idx, edge->idx);
         }
     }
 
@@ -195,27 +191,30 @@ void PolygonsVoronoi::removeSmallEdge()
             small_edges[small_edge->twin()] = true;
 
             bool is_v0 = small_edge->vertex1()->isSource();
-            auto *remove_vertex = is_v0 ? small_edge->vertex0() : small_edge->vertex1();
-            auto *replace_vertex = is_v0 ? small_edge->vertex1() : small_edge->vertex0();
-            std::vector<Edge*> edges = vertex_edges_map[remove_vertex];
+            auto remove_vertex_idx = is_v0 ? small_edge->vertex0()->idx : small_edge->vertex1()->idx;
+            auto replace_vertex_idx = is_v0 ? small_edge->vertex1()->idx : small_edge->vertex0()->idx;
+            std::set<int> edges_ids = vertex_edges_map[remove_vertex_idx];
 
-            for (auto *edge : edges)
+            for (auto edge_idx : edges_ids)
             {
-                if (edge->vertex0() == remove_vertex) {
-                    edge->vertex0(replace_vertex);
+                if (m_edges[edge_idx].vertex0()->idx == remove_vertex_idx) {
+                    m_edges[edge_idx].vertex0Idx(replace_vertex_idx);
+                    add_to_map(replace_vertex_idx, edge_idx);
                 } else {
-                    edge->vertex1(replace_vertex);
+                    m_edges[edge_idx].vertex1Idx(replace_vertex_idx);
+                    add_to_map(replace_vertex_idx, edge_idx);
                 }
             }
 
-            auto *prev_edge = small_edge->prev();
-            auto *next_edge = small_edge->next();
-            prev_edge->next(next_edge);
-            next_edge->prev(prev_edge);
-            auto *twin_prev_edge = small_edge->twin()->prev();
-            auto *twin_next_edge = small_edge->twin()->next();
-            twin_prev_edge->next(twin_next_edge);
-            twin_next_edge->prev(twin_prev_edge);
+            int prev_edge_idx = small_edge->prev()->idx;
+            int next_edge_idx = small_edge->next()->idx;
+            m_edges[prev_edge_idx].nextIdx(next_edge_idx);
+            m_edges[next_edge_idx].prevIdx(prev_edge_idx);
+
+            int twin_prev_edge_idx = small_edge->twin()->prev()->idx;
+            int twin_next_edge_idx = small_edge->twin()->next()->idx;
+            m_edges[twin_prev_edge_idx].nextIdx(twin_next_edge_idx);
+            m_edges[twin_next_edge_idx].prevIdx(twin_prev_edge_idx);
         }
     }
 }

@@ -24,12 +24,12 @@ namespace cura
 
 SkeletalTrapezoidation::node_t& SkeletalTrapezoidation::makeNode(PolygonsVoronoi::Vertex& vd_node, Point p)
 {
-    auto he_node_it = vd_node_to_he_node.find(&vd_node);
+    auto he_node_it = vd_node_to_he_node.find(vd_node.idx);
     if (he_node_it == vd_node_to_he_node.end())
     {
         graph.nodes.emplace_front(SkeletalTrapezoidationJoint(), p);
         node_t& node = graph.nodes.front();
-        vd_node_to_he_node.emplace(&vd_node, &node);
+        vd_node_to_he_node.emplace(vd_node.idx, &node);
         return node;
     }
     else
@@ -40,12 +40,12 @@ SkeletalTrapezoidation::node_t& SkeletalTrapezoidation::makeNode(PolygonsVoronoi
 
 void SkeletalTrapezoidation::transferEdge(Point from, Point to, PolygonsVoronoi::Edge& vd_edge, edge_t*& prev_edge, Point& start_source_point, Point& end_source_point, const std::vector<Point>& points, const std::vector<Segment>& segments)
 {
-    auto he_edge_it = vd_edge_to_he_edge.find(vd_edge.twin());
+    auto he_edge_it = vd_edge_to_he_edge.find(vd_edge.twin()->idx);
     if (he_edge_it != vd_edge_to_he_edge.end())
     { // Twin segment(s) have already been made
         edge_t* source_twin = he_edge_it->second;
         assert(source_twin);
-        auto end_node_it = vd_node_to_he_node.find(vd_edge.vertex1());
+        auto end_node_it = vd_node_to_he_node.find(vd_edge.vertex1()->idx);
         assert(end_node_it != vd_node_to_he_node.end());
         node_t* end_node = end_node_it->second;
         for (edge_t* twin = source_twin;; twin = twin->prev->twin->prev)
@@ -145,7 +145,7 @@ void SkeletalTrapezoidation::transferEdge(Point from, Point to, PolygonsVoronoi:
             }
         }
         assert(prev_edge);
-        vd_edge_to_he_edge.emplace(&vd_edge, prev_edge);
+        vd_edge_to_he_edge.emplace(vd_edge.idx, prev_edge);
     }
 }
 
@@ -378,14 +378,14 @@ void SkeletalTrapezoidation::constructFromPolygons(const Polygons& polys)
     vd_edge_to_he_edge.clear();
     vd_node_to_he_node.clear();
 
-    std::vector<Point> points; // Remains empty
-
+    std::vector<Point> points; // Remains empty;
 
     std::vector<Segment> segments;
     polygonsToSegments(polys, segments);
 
     PolygonsVoronoi polygons_voronoi;
     tryGenerateVoronoi(polys, segments, polygons_voronoi);
+    std::cout << "tryGenerateVoronoi" << std::endl;
 
     for (PolygonsVoronoi::Cell cell : polygons_voronoi.cells())
     {
@@ -397,7 +397,7 @@ void SkeletalTrapezoidation::constructFromPolygons(const Polygons& polys)
         // Copy start to end edge to graph
         edge_t* prev_edge = nullptr;
         transferEdge(start_source_point, VoronoiUtils::p(starting_vonoroi_edge->vertex1()), *starting_vonoroi_edge, prev_edge, start_source_point, end_source_point, points, segments);
-        node_t* starting_node = vd_node_to_he_node[starting_vonoroi_edge->vertex0()];
+        node_t* starting_node = vd_node_to_he_node[starting_vonoroi_edge->vertex0()->idx];
         starting_node->data.distance_to_boundary = 0;
 
         constexpr bool is_next_to_start_or_end = true;

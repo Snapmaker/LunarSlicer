@@ -24,27 +24,30 @@ public:
     class Cell : public vd_t::cell_type
     {
     private:
-        Edge* m_incident_edge = nullptr;
+        PolygonsVoronoi* m_polygons_voronoi;
+        int m_incident_edge_idx = -1;
 
     public:
-        Cell(const vd_t::cell_type* vd_cell) : voronoi_cell(vd_cell->source_index(), vd_cell->source_category())
+        int idx = -1;
+
+        Cell(PolygonsVoronoi* polygons_voronoi, const vd_t::cell_type* vd_cell) : m_polygons_voronoi(polygons_voronoi), voronoi_cell(vd_cell->source_index(), vd_cell->source_category())
         {
             this->color(vd_cell->color());
         };
 
         Edge* incident_edge()
         {
-            return m_incident_edge;
+            return &m_polygons_voronoi->m_edges[m_incident_edge_idx];
         }
 
         Edge* incident_edge() const
         {
-            return m_incident_edge;
+            return &m_polygons_voronoi->m_edges[m_incident_edge_idx];
         }
 
-        void incident_edge(Edge* e)
+        void incident_edge_idx(int e_idx)
         {
-            m_incident_edge = e;
+            m_incident_edge_idx = e_idx;
         }
 
         void print()
@@ -66,49 +69,54 @@ public:
     class Edge : public vd_t::edge_type
     {
     private:
-        Cell* m_cell = nullptr;
-        Vertex* m_vertex_0 = nullptr;
-        Vertex* m_vertex_1 = nullptr;
-        Edge* m_twin = nullptr;
-        Edge* m_next = nullptr;
-        Edge* m_prev = nullptr;
+        PolygonsVoronoi* m_polygons_voronoi;
+        int m_cell_idx = -1;
+
+        int m_twin_idx = -1;
+        int m_next_idx = -1;
+        int m_prev_idx = -1;
+
+        int m_vertex_0_idx = -1;
+        int m_vertex_1_idx = -1;
         bool source = false;
 
     public:
-        Edge(Cell* cell, vd_t::edge_type* vd_edge) : m_cell(cell), vd_t::edge_type(vd_edge->is_linear(), vd_edge->is_primary())
+        int idx = -1;
+
+        Edge(PolygonsVoronoi* polygons_voronoi, Cell* cell, vd_t::edge_type* vd_edge) :m_polygons_voronoi(polygons_voronoi), m_cell_idx(cell->idx), vd_t::edge_type(vd_edge->is_linear(), vd_edge->is_primary())
         {
             this->color(vd_edge->color());
         }
 
-        Edge(Cell* cell, vd_t::edge_type* vd_edge, Vertex* v0, Vertex* v1, bool source) :m_cell(cell), m_vertex_0(v0), m_vertex_1(v1), vd_t::edge_type(vd_edge->is_linear(), vd_edge->is_primary())
+        Edge(PolygonsVoronoi* polygons_voronoi, int cell_idx, vd_t::edge_type* vd_edge, int v0_idx, int v1_idx, bool source) :m_polygons_voronoi(polygons_voronoi), m_cell_idx(cell_idx), m_vertex_0_idx(v0_idx), m_vertex_1_idx(v1_idx), vd_t::edge_type(vd_edge->is_linear(), vd_edge->is_primary())
         {
             this->color(vd_edge->color());
             this->source = source;
         }
 
-        Cell* cell() { return m_cell; }
-        const Cell* cell() const { return m_cell; }
-        void cell(Cell* c) { m_cell = c; }
+        Cell* cell() { return &m_polygons_voronoi->m_cells[m_cell_idx]; }
+        const Cell* cell() const { return &m_polygons_voronoi->m_cells[m_cell_idx]; }
+        void cell(Cell* c) { m_cell_idx = c->idx; }
 
-        Vertex* vertex0() { return m_vertex_0; }
-        const Vertex* vertex0() const { return m_vertex_0; }
-        void vertex0(Vertex* v) { m_vertex_0 = v; }
+        Vertex* vertex0() { return &m_polygons_voronoi->m_vertices[m_vertex_0_idx]; }
+        const Vertex* vertex0() const { return &m_polygons_voronoi->m_vertices[m_vertex_0_idx]; }
+        void vertex0Idx(int v_idx) { m_vertex_0_idx = v_idx; }
 
-        Vertex* vertex1() { return m_vertex_1; }
-        const Vertex* vertex1() const { return m_vertex_1; }
-        void vertex1(Vertex* v) { m_vertex_1 = v; }
+        Vertex* vertex1() { return &m_polygons_voronoi->m_vertices[m_vertex_1_idx]; }
+        const Vertex* vertex1() const { return &m_polygons_voronoi->m_vertices[m_vertex_1_idx]; }
+        void vertex1Idx(int v_idx) { m_vertex_1_idx = v_idx; }
 
-        Edge* twin() { return m_twin; }
-        const Edge* twin() const { return m_twin; };
-        void twin(Edge* e) { m_twin = e; }
+        Edge* twin() { return &m_polygons_voronoi->m_edges[m_twin_idx]; }
+        const Edge* twin() const { return &m_polygons_voronoi->m_edges[m_twin_idx]; };
+        void twinIdx(int idx) { m_twin_idx = idx; }
 
-        Edge* next() { return m_next; }
-        const Edge* next() const { return m_next; }
-        void next(Edge* e) { m_next = e; }
+        Edge* next() { return &m_polygons_voronoi->m_edges[m_next_idx]; }
+        const Edge* next() const { return &m_polygons_voronoi->m_edges[m_next_idx]; }
+        void nextIdx(int e_idx) { m_next_idx = e_idx; }
 
-        Edge* prev() { return m_prev; }
-        const Edge* prev() const { return m_prev; }
-        void prev(Edge* e) { m_prev = e; }
+        Edge* prev() { return &m_polygons_voronoi->m_edges[m_prev_idx]; }
+        const Edge* prev() const { return &m_polygons_voronoi->m_edges[m_prev_idx]; }
+        void prevIdx(int e_idx) { m_prev_idx = e_idx; }
 
         bool is_finite() const { return vertex0() && vertex1(); }
         bool is_infinite() const { return !vertex0() || !vertex1(); }
@@ -123,6 +131,8 @@ public:
         bool source = false;
 
     public:
+        int idx = -1;
+
         Vertex(pos_t x, pos_t y, bool source) : voronoi_vertex(x, y), source(source) {};
 
         explicit Vertex(vd_t::vertex_type* vd_vertex, bool source) : voronoi_vertex(vd_vertex->x(), vd_vertex->y()), source(source)
@@ -153,43 +163,39 @@ public:
         }
     };
 
-    struct EdgeHash
+    struct EdgeIdxHash
     {
-        size_t operator()(const std::pair<Vertex, Vertex> pair) const
+        size_t operator()(const std::pair<int, int> pair) const
         {
-            size_t hash_x0 = std::hash<pos_t>()(pair.first.x());
-            size_t hash_y0 = std::hash<pos_t>()(pair.first.y());
-            size_t hash_x1 = std::hash<pos_t>()(pair.second.x());
-            size_t hash_y1 = std::hash<pos_t>()(pair.second.y());
+            size_t hash_x0 = std::hash<pos_t>()(pair.first);
+            size_t hash_y0 = std::hash<pos_t>()(pair.second);
 
             hash_x0 ^= hash_y0 + 0x9e3779b9 + (hash_x0 << 6) + (hash_x0 >> 2);
-            hash_x1 ^= hash_y1 + 0x9e3779b9 + (hash_x1 << 6) + (hash_x1 >> 2);
-            hash_x0 ^= hash_x1 + 0x9e3779b9 + (hash_x0 << 6) + (hash_x0 >> 2);
             return hash_x0;
         }
     };
 
-    std::list<Cell> m_cells;
-    std::list<Edge> m_edges;
-    std::list<Vertex> m_vertices;
+    std::vector<Cell> m_cells;
+    std::vector<Edge> m_edges;
+    std::vector<Vertex> m_vertices;
 
-    std::unordered_map<std::pair<Vertex, Vertex>, Edge*, EdgeHash> m_edges_map;
-    std::unordered_map<Vertex, Vertex*, VertexHash> m_vertices_map;
+    std::unordered_map<std::pair<int, int>, int, EdgeIdxHash> m_edges_idx_map;
+    std::unordered_map<Vertex, int, VertexHash> m_vertices_idx_map;
 
 public:
     PolygonsVoronoi() {};
 
-    const std::list<Cell>& cells() const
+    const std::vector<Cell>& cells() const
     {
         return m_cells;
     }
 
-    const std::list<Edge>& edges() const
+    const std::vector<Edge>& edges() const
     {
         return m_edges;
     }
 
-    const std::list<Vertex>& vertices() const
+    const std::vector<Vertex>& vertices() const
     {
         return m_vertices;
     }
@@ -201,67 +207,66 @@ public:
 private:
     void convertToPolygonsCell(vd_t::cell_type& vd_cell, Segments& segments, const Polygons& polygons);
 
-    Cell* getCell(const vd_t::cell_type* vd_cell)
+    int getCell(PolygonsVoronoi* polygons_voronoi, const vd_t::cell_type* vd_cell)
     {
-        Cell cell(vd_cell);
+        Cell cell(polygons_voronoi, vd_cell);
         this->m_cells.push_back(cell);
-        return &this->m_cells.back();
+        this->m_cells.back().idx = this->m_cells.size() - 1;
+        return this->m_cells.back().idx;
     };
 
-    Edge* getEdge(Cell* cell, vd_t::vertex_type* v0, vd_t::vertex_type* v1, bool source = false)
+    int getEdge(PolygonsVoronoi* polygons_voronoi, int cell_idx, vd_t::vertex_type* v0, vd_t::vertex_type* v1, bool source = false)
     {
         vd_t::edge_type vd_edge(true, true);
-        return getEdge(cell, &vd_edge, getVertex(v0, source), getVertex(v1, source), source);
+        return getEdge(polygons_voronoi, cell_idx, &vd_edge, getVertex(v0, source), getVertex(v1, source), source);
     }
 
-    Edge* getEdge(Cell* cell, vd_t::edge_type* vd_edge, vd_t::vertex_type* v0, vd_t::vertex_type* v1, bool source = false)
+    int getEdge(PolygonsVoronoi* polygons_voronoi, int cell_idx, vd_t::edge_type* vd_edge, vd_t::vertex_type* v0, vd_t::vertex_type* v1, bool source = false)
     {
-        return getEdge(cell, vd_edge, getVertex(v0, source), getVertex(v1, source), source);
+        return getEdge(polygons_voronoi, cell_idx, vd_edge, getVertex(v0, source), getVertex(v1, source), source);
     }
 
-    Edge* getEdge(Cell* cell, vd_t::edge_type* vd_edge, Vertex* v0, Vertex* v1, bool source = false)
+    int getEdge(PolygonsVoronoi* polygons_voronoi, int cell_idx, vd_t::edge_type* vd_edge, int v0_idx, int v1_idx, bool source = false)
     {
-        if (m_edges_map.find({*v0, *v1}) != m_edges_map.end())
+        if (m_edges_idx_map.find({v0_idx, v1_idx}) != m_edges_idx_map.end())
         {
-            return m_edges_map[{ *v0, *v1 }];
+            return m_edges_idx_map[{v0_idx, v1_idx}];
         }
-        Edge edge(cell, vd_edge, v0, v1, source);
+        Edge edge(polygons_voronoi, cell_idx, vd_edge, v0_idx, v1_idx, source);
         this->m_edges.emplace_back(edge);
-        Edge* p_edge = &this->m_edges.back();
+        int idx = this->m_edges.size() - 1;
+        this->m_edges.back().idx = idx;
 
-        m_edges_map[{*v0, *v1}] = p_edge;
+        m_edges_idx_map[{v0_idx, v1_idx}] = idx;
 
-        if (!source && m_edges_map.find({*v1, *v0}) != m_edges_map.end())
+        if (!source && m_edges_idx_map.find({v1_idx, v0_idx}) != m_edges_idx_map.end())
         {
-            Edge* p_edge_twin = m_edges_map[{*v1, *v0}];
-            p_edge->twin(p_edge_twin);
-            p_edge_twin->twin(p_edge);
+            int p_edge_twin_idx = m_edges_idx_map[{v1_idx, v0_idx}];
+            this->m_edges[idx].twinIdx(p_edge_twin_idx);
+            this->m_edges[p_edge_twin_idx].twinIdx(idx);
         }
 
-        return p_edge;
+        return idx;
     }
 
-    Vertex* getVertex(pos_t x, pos_t y, bool source)
-    {
-        Vertex vertex(x, y, source);
-        return getVertex(&vertex);
-    }
-
-    Vertex* getVertex(vd_t::vertex_type* vd_vertex, bool source = false)
+    int getVertex(vd_t::vertex_type* vd_vertex, bool source = false)
     {
         Vertex vertex(vd_vertex, source);
         return getVertex(&vertex);
     }
 
-    Vertex* getVertex(Vertex* vertex)
+    int getVertex(Vertex* vertex)
     {
-        if (m_vertices_map.find(*vertex) != m_vertices_map.end())
+        if (m_vertices_idx_map.find(*vertex) != m_vertices_idx_map.end())
         {
-            return m_vertices_map[*vertex];
+            return m_vertices_idx_map[*vertex];
         }
         this->m_vertices.emplace_back(vertex->x(), vertex->y(), vertex->isSource());
-        m_vertices_map[*vertex] = &this->m_vertices.back();
-        return &this->m_vertices.back();
+        int idx = this->m_vertices.size() - 1;
+        this->m_vertices.back().idx = idx;
+        m_vertices_idx_map[*vertex] = idx;
+
+        return idx;
     }
     bool searchStartAndEnd(vd_t::cell_type& vd_cell, vd_t::edge_type*& p_start_edge, vd_t::edge_type*& p_end_edge, vd_t::vertex_type* source_start_point, vd_t::vertex_type* source_end_point);
 
@@ -270,6 +275,7 @@ private:
     bool checkInsidePolygons(vd_t::edge_type* p_start_vd_edge, vd_t::edge_type* p_end_vd_edge, const Polygons& polygons);
 
     double computeArea(vd_t::vertex_type* p0, vd_t::vertex_type* p1, vd_t::vertex_type* p2);
+
     void removeSmallEdge();
 };
 

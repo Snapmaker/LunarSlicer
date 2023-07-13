@@ -162,8 +162,8 @@ protected:
      * mapping each voronoi VD edge to the corresponding halfedge HE edge
      * In case the result segment is discretized, we map the VD edge to the *last* HE edge
      */
-    std::unordered_map<PolygonsVoronoi::Edge*, edge_t*> vd_edge_to_he_edge;
-    std::unordered_map<PolygonsVoronoi::Vertex*, node_t*> vd_node_to_he_node;
+    std::unordered_map<int, edge_t*> vd_edge_to_he_edge;
+    std::unordered_map<int, node_t*> vd_node_to_he_node;
     node_t& makeNode(PolygonsVoronoi::Vertex& vd_node, Point p); //!< Get the node which the VD node maps to, or create a new mapping if there wasn't any yet.
 
     /*!
