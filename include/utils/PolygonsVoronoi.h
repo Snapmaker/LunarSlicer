@@ -270,7 +270,10 @@ private:
     bool checkInsidePolygons(vd_t::edge_type* p_start_vd_edge, vd_t::edge_type* p_end_vd_edge, const Polygons& polygons);
 
     double computeArea(vd_t::vertex_type* p0, vd_t::vertex_type* p1, vd_t::vertex_type* p2);
+
     void removeSmallEdge();
+
+    double computeLength2(vd_t::vertex_type* p0, vd_t::vertex_type* p1);
 };
 
 

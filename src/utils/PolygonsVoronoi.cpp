@@ -154,15 +154,15 @@ double PolygonsVoronoi::computeArea(vd_t::vertex_type* p0, vd_t::vertex_type* p1
 
 void PolygonsVoronoi::removeSmallEdge()
 {
-    std::unordered_map<Vertex*, std::vector<Edge*>> vertex_edges_map;
+    std::unordered_map<Vertex*, std::set<Edge*>> vertex_edges_map;
 
     std::unordered_map<Edge*, bool> small_edges;
 
     auto add_to_map = [&vertex_edges_map](Vertex* vertex, Edge* edge){
         if (vertex_edges_map.find(vertex) == vertex_edges_map.end()) {
-            vertex_edges_map[vertex] = std::vector<Edge*>();
+            vertex_edges_map[vertex] = std::set<Edge*>();
         }
-        vertex_edges_map[vertex].emplace_back(edge);
+        vertex_edges_map[vertex].insert(edge);
     };
 
     for (Cell cell : m_cells)
@@ -170,10 +170,9 @@ void PolygonsVoronoi::removeSmallEdge()
         Edge* begin = cell.incident_edge();
         for (auto *edge = begin->next(); edge != begin; edge = edge->next())
         {
-            Point p0 = VoronoiUtils::p(edge->vertex0());
-            Point p1 = VoronoiUtils::p(edge->vertex1());
-            if (p0 == p1) {
+            if (computeLength2(edge->vertex0(), edge->vertex1()) < 0.000001) {
                 small_edges[edge] = false;
+                small_edges[edge->twin()] = false;
             }
             add_to_map(edge->vertex0(), edge);
             add_to_map(edge->vertex1(), edge);
@@ -197,7 +196,7 @@ void PolygonsVoronoi::removeSmallEdge()
             bool is_v0 = small_edge->vertex1()->isSource();
             auto *remove_vertex = is_v0 ? small_edge->vertex0() : small_edge->vertex1();
             auto *replace_vertex = is_v0 ? small_edge->vertex1() : small_edge->vertex0();
-            std::vector<Edge*> edges = vertex_edges_map[remove_vertex];
+            std::set<Edge*> edges = vertex_edges_map[remove_vertex];
 
             for (auto *edge : edges)
             {
@@ -206,6 +205,7 @@ void PolygonsVoronoi::removeSmallEdge()
                 } else {
                     edge->vertex1(replace_vertex);
                 }
+                add_to_map(replace_vertex, edge);
             }
 
             auto *prev_edge = small_edge->prev();
@@ -238,6 +238,11 @@ void PolygonsVoronoi::print()
         std::cout << "],";
     }
     std::cout << "[]]" << std::endl;
+}
+
+double PolygonsVoronoi::computeLength2(boost::polygon::voronoi_vertex<double>* p0, boost::polygon::voronoi_vertex<double>* p1)
+{
+    return (p0->x() - p1->x()) * (p0->x() - p1->x()) + (p0->y() - p1->y()) * (p0->y() - p1->y());
 }
 
 } // namespace cura

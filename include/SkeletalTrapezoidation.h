@@ -600,6 +600,8 @@ protected:
     void generateLocalMaximaSingleBeads();
 
     bool checkVoronoiEdgeTwin(PolygonsVoronoi& polygons_voronoi);
+
+    bool checkVoronoiSmallEdge(PolygonsVoronoi& polygons_voronoi);
 };
 
 } // namespace cura

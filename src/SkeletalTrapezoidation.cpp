@@ -436,16 +436,26 @@ void SkeletalTrapezoidation::tryGenerateVoronoi(const Polygons& polygons, Segmen
     polygonsToSegments(polygons, segments);
     polygons_voronoi.constructVoronoi(segments, polygons);
 
-    int try_count = 2;
+    tmp_polys = polygons;
+
+    int try_count = 4;
     while (try_count > 0) {
-        if (!checkVoronoiDistance(polygons_voronoi) || !checkVoronoiEdgeTwin(polygons_voronoi)) {
-            spdlog::debug("Check error for parse voronoi for try_count: %d", try_count);
-            tmp_polys = polygons.offset(10);
+        if (!checkVoronoiDistance(polygons_voronoi)) {
+            spdlog::debug("Check voronoi distance error for parse voronoi for try_count: {}", try_count);
+            tmp_polys = tmp_polys.offset(10);
+            tmp_polys.print("tmp_polys");
+            segments.clear();
+            polygonsToSegments(tmp_polys, segments);
+            polygons_voronoi.constructVoronoi(segments, tmp_polys);
+        } else if (!checkVoronoiEdgeTwin(polygons_voronoi)) {
+            spdlog::debug("Check edge twin error for parse voronoi for try_count: {}", try_count);
+            tmp_polys = tmp_polys.offset(10);
+            tmp_polys.print("tmp_polys");
             segments.clear();
             polygonsToSegments(tmp_polys, segments);
             polygons_voronoi.constructVoronoi(segments, tmp_polys);
         } else {
-            break;
+            break ;
         }
         try_count--;
     }
@@ -483,6 +493,28 @@ bool SkeletalTrapezoidation::checkVoronoiEdgeTwin(PolygonsVoronoi& polygons_voro
     }
     return true;
 }
+
+bool SkeletalTrapezoidation::checkVoronoiSmallEdge(PolygonsVoronoi& polygons_voronoi)
+{
+    for (const auto& item : polygons_voronoi.cells())
+    {
+        PolygonsVoronoi::Edge* e = item.incident_edge()->next();
+        while (e != item.incident_edge()) {
+            auto* v0 = e->vertex0();
+            auto* v1 = e->vertex1();
+            double len2 = (v0->x() - v1->x()) * (v0->x() - v1->x()) + (v0->y() - v1->y()) * (v0->y() - v1->y());
+
+            if (len2 < 0.01) {
+                return false;
+            }
+
+            e = e->next();
+        }
+    }
+    return true;
+}
+
+
 
 
 void SkeletalTrapezoidation::separatePointyQuadEndNodes()

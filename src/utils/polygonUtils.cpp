@@ -1544,7 +1544,7 @@ void PolygonUtils::splitToSimplePolygons(Polygons& polygons, std::vector<Polygon
     {
         index_area_sorts.emplace_back(i, polygons[i].area());
     }
-    std::sort(index_area_sorts.begin(), index_area_sorts.end(), [](std::pair<int, int> a, std::pair<int, int> b) {
+    std::sort(index_area_sorts.begin(), index_area_sorts.end(), [](std::pair<int, double> a, std::pair<int, double> b) {
                   return std::abs(a.second) > std::abs(b.second);
     });
     for (int i = 0; i < index_area_sorts.size(); ++i)
