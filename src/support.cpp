@@ -34,7 +34,6 @@
 #include "utils/math.h"
 #include "SkeletalTrapezoidation.h"
 #include "utils/VoronoiUtils.h"
-#include "BoostInterface.hpp"
 #include "utils/views/get.h"
 
 namespace cura
@@ -886,7 +885,7 @@ Polygons AreaSupport::generateVaryingXYDisallowedArea(const SliceMeshStorage& st
 
         // construct a voronoi diagram. The slope is calculated based
         // on the edge length from the boundary to the center edge(s)
-        std::vector<SkeletalTrapezoidation::Segment> segments;
+        std::vector<Segment> segments;
         for (auto [poly_idx, poly]: layer_delta | ranges::views::enumerate)
         {
             for (auto [point_idx, _p]: poly | ranges::views::enumerate)

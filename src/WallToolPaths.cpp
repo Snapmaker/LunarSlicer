@@ -75,7 +75,7 @@ const std::vector<VariableWidthLines>& WallToolPaths::generate()
     prepared_outline.removeDegenerateVerts();
     prepared_outline = prepared_outline.unionPolygons();
     prepared_outline = Simplify(settings).polygon(prepared_outline);
-    prepared_outline = PolygonUtils::offsetInlinePolygons(10, prepared_outline);
+//    prepared_outline = PolygonUtils::offsetInlinePolygons(10, prepared_outline);
 //    prepared_outline.print();
 
     if (prepared_outline.area() <= 0)

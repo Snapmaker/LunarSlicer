@@ -1,12 +1,12 @@
 #include "MultiMaterialSegmentation.h"
 #include "Application.h"
-#include "BoostInterface.hpp"
 #include "Scene.h"
 #include "Slice.h"
 #include "boost/polygon/voronoi.hpp"
 #include "utils/Constant.h"
 #include "utils/Simplify.h"
 #include "utils/ThreadPool.h"
+#include "utils/gettime.h"
 #include "utils/linearAlg2D.h"
 #include "utils/polygonUtils.h"
 
@@ -15,7 +15,7 @@ namespace cura
 
 class Slice;
 
-void MultiMaterialSegmentation::multiMaterialSegmentationByPainting(Slicer* slicer, Slicer* color_slicer)
+void MultiMaterialSegmentation::paintingSlicer(Slicer* slicer, Slicer* color_slicer)
 {
     MultiMaterialSegmentation mms(slicer->layers.size());
     mms.paintingSlicerLayers(slicer, color_slicer);
@@ -40,6 +40,7 @@ void MultiMaterialSegmentation::paintingSlicerLayers(Slicer* slicer, Slicer* col
     coord_t wall_inner_line_width = slicer->mesh->settings.get<coord_t>("wall_line_width_x");
 
     coord_t z_h = MM2INT(1);
+    coord_t min_offset_len = MM2INT(0.04);
 
     std::vector<Polygons> no_colored_top_faces_polys_list(layers.size());
     std::vector<Polygons> no_colored_bottom_faces_polys_list(layers.size());
@@ -93,11 +94,13 @@ void MultiMaterialSegmentation::paintingSlicerLayers(Slicer* slicer, Slicer* col
                                     {
                                         intersection_outline_polys = intersection_outline_polys.intersection(layers[k].polygons);
 
-                                        Polygons skin_polys = m_colored_top_faces_polys_list[layer_nr].intersection(intersection_outline_polys.offset(width));
+                                        Polygons offset_polys = intersection_outline_polys.offset(width);
+
+                                        Polygons skin_polys = m_colored_top_faces_polys_list[layer_nr].intersection(offset_polys);
                                         skin_polys = PolygonUtils::simplifyByScale(skin_polys, wall_outer_line_width);
                                         colored_skin_faces_polys_list[k].add(skin_polys);
 
-                                        Polygons no_skin_polys = no_colored_top_faces_polys_list[layer_nr].intersection(intersection_outline_polys.offset(width));
+                                        Polygons no_skin_polys = no_colored_top_faces_polys_list[layer_nr].intersection(offset_polys);
                                         no_skin_polys = PolygonUtils::simplifyByScale(no_skin_polys, wall_outer_line_width);
                                         no_colored_skin_faces_polys_list[k].add(no_skin_polys);
 
@@ -125,11 +128,13 @@ void MultiMaterialSegmentation::paintingSlicerLayers(Slicer* slicer, Slicer* col
                                     {
                                         intersection_outline_polys = intersection_outline_polys.intersection(layers[k].polygons);
 
-                                        Polygons skin_polys = m_colored_bottom_faces_polys_list[layer_nr].intersection(intersection_outline_polys.offset(width));
+                                        Polygons offset_polys = intersection_outline_polys.offset(width);
+
+                                        Polygons skin_polys = m_colored_bottom_faces_polys_list[layer_nr].intersection(offset_polys);
                                         skin_polys = PolygonUtils::simplifyByScale(skin_polys, wall_outer_line_width);
                                         colored_skin_faces_polys_list[k].add(skin_polys);
 
-                                        Polygons no_skin_polys = no_colored_bottom_faces_polys_list[layer_nr].intersection(intersection_outline_polys.offset(width));
+                                        Polygons no_skin_polys = no_colored_bottom_faces_polys_list[layer_nr].intersection(offset_polys);
                                         no_skin_polys = PolygonUtils::simplifyByScale(no_skin_polys, wall_outer_line_width);
                                         no_colored_skin_faces_polys_list[k].add(no_skin_polys);
 
@@ -161,7 +166,7 @@ void MultiMaterialSegmentation::paintingSlicerLayers(Slicer* slicer, Slicer* col
                                 m_colored_lines_polys_list[layer_nr] = m_colored_lines_polys_list[layer_nr].difference(no_colored_skin_faces_polys_list[layer_nr]);
 
                                 Polygons top_diff_polys = layer_nr < (layers.size() - 1) ? layers[layer_nr].polygons.difference(layers[layer_nr + 1].polygons) : layers[layer_nr].polygons;
-                                Polygons no_colored_top_skin_polys = top_diff_polys.difference(m_colored_top_faces_polys_list[layer_nr].offset(40));
+                                Polygons no_colored_top_skin_polys = top_diff_polys.difference(m_colored_top_faces_polys_list[layer_nr].offset(min_offset_len));
                                 no_colored_top_skin_polys = no_colored_top_skin_polys.difference(m_colored_faces_polys_list[layer_nr]);
 
                                 m_colored_lines_polys_list[layer_nr] = m_colored_lines_polys_list[layer_nr].difference(no_colored_top_skin_polys.intersection(offset_polys));
@@ -169,7 +174,7 @@ void MultiMaterialSegmentation::paintingSlicerLayers(Slicer* slicer, Slicer* col
 
 
                                 Polygons bottom_diff_polys = layer_nr > 0 ? layers[layer_nr].polygons.difference(layers[layer_nr - 1].polygons) : layers[layer_nr].polygons;
-                                Polygons no_colored_bottom_skin_polys = bottom_diff_polys.difference(m_colored_bottom_faces_polys_list[layer_nr].offset(40));
+                                Polygons no_colored_bottom_skin_polys = bottom_diff_polys.difference(m_colored_bottom_faces_polys_list[layer_nr].offset(min_offset_len));
                                 no_colored_bottom_skin_polys = no_colored_bottom_skin_polys.difference(m_colored_faces_polys_list[layer_nr]);
 
                                 m_colored_lines_polys_list[layer_nr] = m_colored_lines_polys_list[layer_nr].difference(no_colored_bottom_skin_polys.intersection(offset_polys));
@@ -235,7 +240,8 @@ Polygons MultiMaterialSegmentation::paintingSlicerLayerColoredLines(SlicerLayer&
         color_line_polys.add(poly);
     }
 
-    color_line_polys = color_line_polys.offsetPolyLine(40);
+    coord_t min_offset_len = MM2INT(0.04);
+    color_line_polys = color_line_polys.offsetPolyLine(min_offset_len);
 
     Polygons all_voronoi_color_polys;
     std::vector<Polygons> simple_polygons;
@@ -247,7 +253,8 @@ Polygons MultiMaterialSegmentation::paintingSlicerLayerColoredLines(SlicerLayer&
 
         Polygons color_polys;
         std::vector<Segment> color_segments;
-        paintingPolygonByColorLinePolygons(polys, color_line_polys, color_polys, color_segments);
+        coloredLineSegmentMatching2(polys, color_line_polys, color_polys, color_segments);
+//        coloredLineSegmentMatching(polys, color_line_polys, color_polys, color_segments);
 
         std::set<int> colors;
         for (int j = 0; j < color_segments.size(); ++j)
@@ -257,11 +264,10 @@ Polygons MultiMaterialSegmentation::paintingSlicerLayerColoredLines(SlicerLayer&
 
         if (colors.size() == 1)
         {
-            if (colors.find(MESH_PAINTING_COLOR) == colors.end())
+            if (colors.find(MESH_PAINTING_COLOR) != colors.end())
             {
-                continue;
+                all_voronoi_color_polys.add(polys);
             }
-            all_voronoi_color_polys.add(polys);
             continue;
         }
 
@@ -344,7 +350,7 @@ Polygons MultiMaterialSegmentation::toVoronoiColorPolygons(std::vector<Segment>&
 }
 
 
-void MultiMaterialSegmentation::paintingPolygonByColorLinePolygons(Polygons& polys, Polygons& color_line_polys, Polygons& color_polys, std::vector<Segment>& color_segments)
+void MultiMaterialSegmentation::coloredLineSegmentMatching(Polygons& polys, Polygons& color_line_polys, Polygons& out_color_polys, std::vector<Segment>& out_color_segments)
 {
     AABB poly_lines_aabb;
     for (int i = 0; i < color_line_polys.size(); ++i)
@@ -369,7 +375,7 @@ void MultiMaterialSegmentation::paintingPolygonByColorLinePolygons(Polygons& pol
 
             if (! poly_lines_aabb.hit(aabb))
             {
-                color_segments.emplace_back(&color_polys, color_polys.size(), color_poly.size(), MESH_NO_PAINTING_COLOR);
+                out_color_segments.emplace_back(&out_color_polys, out_color_polys.size(), color_poly.size(), MESH_NO_PAINTING_COLOR);
                 color_poly.emplace_back(p1);
                 continue;
             }
@@ -378,12 +384,205 @@ void MultiMaterialSegmentation::paintingPolygonByColorLinePolygons(Polygons& pol
 
             for (int k = 0; k < res.colors.size(); ++k)
             {
-                color_segments.emplace_back(&color_polys, color_polys.size(), color_poly.size(), res.colors[k]);
+                out_color_segments.emplace_back(&out_color_polys, out_color_polys.size(), color_poly.size(), res.colors[k]);
                 color_poly.emplace_back(res.points[k]);
             }
         }
-        color_polys.add(color_poly);
+        out_color_polys.add(color_poly);
     }
+}
+
+
+void MultiMaterialSegmentation::coloredLineSegmentMatching2(Polygons& polys, Polygons& color_line_polys, Polygons& out_color_polys, std::vector<Segment>& out_color_segments)
+{
+    for (int i = 0; i < polys.size(); ++i)
+    {
+        if (polys[i].front() != polys[i].back()) {
+            polys[i].add(polys[i].front());
+        }
+    }
+
+    auto copyPolygons = [&polys, &out_color_polys, &out_color_segments](int color){
+        for (int i = 0; i < polys.size(); ++i)
+        {
+            Polygon color_poly;
+            for (int j = 0; j < polys[i].size(); ++j)
+            {
+                color_poly.add(polys[i][j]);
+                out_color_segments.emplace_back(&out_color_polys, i, j, color);
+            }
+            out_color_polys.add(color_poly);
+        }
+    };
+
+    Polygons diffLines = color_line_polys.differenceOpenPolygons(polys);
+
+
+    if (diffLines.empty()) {
+        copyPolygons(MESH_PAINTING_COLOR);
+        return;
+    }
+
+    Polygons interLines = color_line_polys.intersectionOpenPolygons(polys);
+
+    if (interLines.empty()) {
+        copyPolygons(MESH_NO_PAINTING_COLOR);
+        return;
+    }
+
+    int color_size = diffLines.size();
+
+//    diffLines.print();
+//    interLines.print();
+
+    diffLines.add(interLines);
+
+    auto getColor = [&color_size](int size){
+        return size < color_size ? MESH_NO_PAINTING_COLOR : MESH_PAINTING_COLOR;
+    };
+
+    int use_count = 0;
+    std::vector<bool> used(diffLines.size(), false);
+
+    // The lines front in the first and back in the second;
+    std::unordered_map<Point, std::vector<int>> point_lines_map;
+    std::vector<std::vector<int>> color_segments_tmp;
+
+    for (int i = 0; i < diffLines.size(); ++i)
+    {
+        Point& front = diffLines[i].front();
+        Point& back = diffLines[i].back();
+        if (front == back) {
+            use_count++;
+            used[i] = true;
+            out_color_polys.add(diffLines[i]);
+            color_segments_tmp.emplace_back();
+            color_segments_tmp.back().resize(diffLines[i].size(), getColor(i));
+            continue;
+        }
+        if (point_lines_map.find(front) == point_lines_map.end()) {
+            point_lines_map[front] = std::vector<int>();
+        }
+        if (point_lines_map.find(back) == point_lines_map.end()) {
+            point_lines_map[back] = std::vector<int>();
+        }
+
+        point_lines_map[front].push_back(i);
+        point_lines_map[back].push_back(i);
+    }
+
+    while (use_count < diffLines.size()) {
+        Polygon poly;
+        color_segments_tmp.emplace_back();
+        for (int i = 0; i < diffLines.size(); ++i)
+        {
+            if (used[i]) {
+                continue;
+            }
+            used[i] = true;
+            use_count++;
+            for (int j = 0; j < diffLines[i].size(); ++j)
+            {
+                poly.add(diffLines[i][j]);
+                color_segments_tmp.back().emplace_back(getColor(i));
+            }
+            break;
+        }
+
+        while (use_count < diffLines.size()) {
+            auto next = point_lines_map.find(poly.back());
+            assert(next != point_lines_map.end());
+            if (next == point_lines_map.end()) {
+                spdlog::warn("Abnormal color matching of line segments, next is null");
+                break;
+            }
+            int next_idx = -1;
+            for (int i = 0; i < next->second.size(); ++i)
+            {
+                if (used[next->second[i]]) {
+                    continue;
+                }
+                next_idx = next->second[i];
+            }
+            if (next_idx == -1) {
+                spdlog::warn("Abnormal color matching of line segments, next_idx is -1");
+                break;
+            }
+            use_count++;
+            used[next_idx] = true;
+            auto next_poly = diffLines[next_idx];
+            bool is_first = poly.back() == next_poly.front();
+            for (int j = is_first ? 0 : next_poly.size() - 1; is_first ? j <= next_poly.size() - 1: j >= 0;is_first ? ++j:--j)
+            {
+                poly.add(next_poly[j]);
+                color_segments_tmp.back().emplace_back(getColor(next_idx));
+            }
+            if (poly.front() == poly.back()) {
+                break;
+            }
+        }
+        out_color_polys.add(poly);
+    }
+
+    assert(polys.size() == out_color_polys.size());
+    assert(out_color_polys.size() == color_segments_tmp.size());
+
+    // Check the direction of polygons after splicing
+    std::vector<int> areas;
+    for (int i = 0; i < polys.size(); ++i)
+    {
+        areas.push_back(polys[i].area());
+    }
+    for (int i = 0; i < out_color_polys.size(); ++i)
+    {
+        int area = out_color_polys[i].area();
+        int abs_area = std::abs(area);
+        int min_area = std::abs(areas[0]) - abs_area;
+        int min_area_idx = 0;
+        for (int j = 0; j < areas.size(); ++j)
+        {
+            int area_tmp = std::abs(areas[j]) - std::abs(area);
+            if (area_tmp < min_area) {
+                min_area = area_tmp;
+                min_area_idx = j;
+            }
+        }
+        if ((bool)(area > 0) != (bool)(areas[min_area_idx] > 0)) {
+            out_color_polys[i].reverse();
+            std::reverse(color_segments_tmp[i].begin(), color_segments_tmp[i].end());
+        }
+    }
+
+    // Check edge redundant small line segments
+    coord_t min_offset_s_len2 = MM2INT(0.06) * MM2INT(0.06);
+    for (int i = 0; i < out_color_polys.size(); ++i)
+    {
+        for (int j = 0; j < out_color_polys[i].size(); ++j)
+        {
+            if (color_segments_tmp[i][j] != MESH_PAINTING_COLOR) {
+                continue ;
+            }
+            int prev_color = color_segments_tmp[i][(j - 1) % out_color_polys[i].size()];
+            int next_color = color_segments_tmp[i][(j + 1) % out_color_polys[i].size()];
+            if (prev_color == next_color) {
+                continue ;
+            }
+            coord_t len2 = vSize2((out_color_polys[i][(j + 1) % out_color_polys[i].size()] - out_color_polys[i][j]));
+            if (len2 > min_offset_s_len2) {
+                continue ;
+            }
+            color_segments_tmp[i][j] = MESH_NO_PAINTING_COLOR;
+        }
+    }
+
+    for (int i = 0; i < color_segments_tmp.size(); ++i)
+    {
+        for (int j = 0; j < color_segments_tmp[i].size(); ++j)
+        {
+            out_color_segments.emplace_back(&out_color_polys, i, j, color_segments_tmp[i][j]);
+        }
+    }
+
 }
 
 MultiMaterialSegmentation::Line MultiMaterialSegmentation::linePolygonsIntersection(Point& p1, Point& p2, Polygons& line_polys)
