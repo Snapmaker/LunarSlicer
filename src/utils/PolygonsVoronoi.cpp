@@ -53,10 +53,15 @@ void PolygonsVoronoi::convertToPolygonsCell(vd_t::cell_type& vd_cell, Segments& 
         return;
     }
 
-    if(!checkInsidePolygons(p_start_vd_edge, p_end_vd_edge, polygons)) {
+    if (!checkIsInfinite(p_start_vd_edge, p_end_vd_edge))
+    {
         return;
     }
 
+    if(!checkInsidePolygons(p_start_vd_edge, p_end_vd_edge, polygons)) {
+        return;
+    }
+    
     Cell* cell = getCell(&vd_cell);
 
     vd_t::vertex_type* last_point;
@@ -98,12 +103,12 @@ bool PolygonsVoronoi::searchStartAndEnd(vd_t::cell_type& vd_cell, vd_t::edge_typ
 
     do
     {
-        if (p_vd_edge->is_infinite()) {
+        if (p_vd_edge->is_infinite()) {            
             if (p_vd_edge->is_secondary()) {
-                if (!p_vd_edge->vertex0() && ! vdVertexEqual(p_vd_edge->vertex1(), source_start_p)) {
+                if (!p_vd_edge->vertex0() && p_vd_edge->vertex1() && ! vdVertexEqual(p_vd_edge->vertex1(), source_start_p)) {
                     p_start_vd_edge = p_vd_edge;
                 }
-                if (!p_vd_edge->vertex1() && ! vdVertexEqual(p_vd_edge->vertex0(), source_end_p)) {
+                if (!p_vd_edge->vertex1() && p_vd_edge->vertex0() && ! vdVertexEqual(p_vd_edge->vertex0(), source_end_p)) {
                     p_end_vd_edge = p_vd_edge;
                 }
             }
@@ -145,6 +150,25 @@ bool PolygonsVoronoi::checkInsidePolygons(vd_t::edge_type* p_start_vd_edge, vd_t
     }
 
     return false;
+}
+
+bool PolygonsVoronoi::checkIsInfinite(vd_t::edge_type* p_start_vd_edge, vd_t::edge_type* p_end_vd_edge)
+{
+    if (!p_start_vd_edge->vertex1() || !p_end_vd_edge->vertex0())
+    {
+        return false;
+    }
+    
+    vd_t::edge_type* e = p_start_vd_edge->next();
+    while (e != p_end_vd_edge)
+    {
+        if (e->is_infinite())
+        {
+            return false;
+        }
+        e = e->next();
+    }
+    return true;
 }
 
 double PolygonsVoronoi::computeArea(vd_t::vertex_type* p0, vd_t::vertex_type* p1, vd_t::vertex_type* p2)
