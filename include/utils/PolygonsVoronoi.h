@@ -267,6 +267,10 @@ private:
 
     bool vdVertexEqual(const vd_t::vertex_type* p_vertex1, const vd_t::vertex_type* p_vertex2);
 
+    bool esEqual(double x1, double x2) {
+        return abs(x1 - x2) < 0.000001;
+    };
+
     bool checkInsidePolygons(vd_t::edge_type* p_start_vd_edge, vd_t::edge_type* p_end_vd_edge, const Polygons& polygons);
 
     bool checkIsInfinite(vd_t::edge_type* p_start_vd_edge, vd_t::edge_type* p_end_vd_edge);

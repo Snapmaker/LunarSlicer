@@ -139,7 +139,7 @@ bool PolygonsVoronoi::searchStartAndEnd(vd_t::cell_type& vd_cell, vd_t::edge_typ
 
 bool PolygonsVoronoi::vdVertexEqual(const vd_t::vertex_type* p_vertex1, const vd_t::vertex_type* p_vertex2)
 {
-    return p_vertex1->x() == p_vertex2->x() && p_vertex1->y() == p_vertex2->y();
+    return esEqual(p_vertex1->x(), p_vertex2->x()) && esEqual(p_vertex1->y(), p_vertex2->y());
 }
 
 bool PolygonsVoronoi::checkInsidePolygons(vd_t::edge_type* p_start_vd_edge, vd_t::edge_type* p_end_vd_edge, const Polygons& polygons)
