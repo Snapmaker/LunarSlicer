@@ -7,9 +7,9 @@ project(CuraEngine)
 find_package(standardprojectsettings REQUIRED)  # imports the cmake module https://github.com/Ultimaker/conan-ultimaker-index/recipes/standardprojectsettings
 AssureOutOfSourceBuilds()
 
-option(ENABLE_ARCUS "Enable support for ARCUS" ON)
+option(ENABLE_ARCUS "Enable support for ARCUS" OFF)
 option(ENABLE_TESTING "Build with unit tests" OFF)
-option(EXTENSIVE_WARNINGS "Build with all warnings" ON)
+option(EXTENSIVE_WARNINGS "Build with all warnings" OFF)
 option(ENABLE_MORE_COMPILER_OPTIMIZATION_FLAGS "Enable more optimization flags" ON)
 option(USE_SYSTEM_LIBS "Use the system libraries if available" OFF)
 
@@ -183,8 +183,19 @@ if (ENABLE_ARCUS)
     target_link_libraries(_CuraEngine PRIVATE arcus::arcus protobuf::libprotobuf)
 endif ()
 
-find_package(clipper REQUIRED)
-find_package(RapidJSON REQUIRED)
+set(engine_libs_include
+        libs/clipper
+        libs/rapidjson
+)
+
+add_library(clipper STATIC libs/clipper/clipper.cpp)
+target_link_libraries(_CuraEngine PUBLIC clipper)
+
+include_directories("${CMAKE_CURRENT_BINARY_DIR}" libs ${engine_libs_include})
+
+
+#find_package(clipper REQUIRED)
+#find_package(RapidJSON REQUIRED)
 find_package(stb REQUIRED)
 find_package(Boost REQUIRED)
 find_package(spdlog REQUIRED)
@@ -200,8 +211,6 @@ target_link_libraries(_CuraEngine
         spdlog::spdlog
         range-v3::range-v3
         fmt::fmt
-        clipper::clipper
-        rapidjson
         stb::stb
         boost::boost
         $<$<BOOL:${ENABLE_TESTING}>:GTest::gtest>)

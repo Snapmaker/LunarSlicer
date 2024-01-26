@@ -4,7 +4,7 @@
 #include "utils/AABB.h"
 #include "utils/polygon.h"
 #include <gtest/gtest.h>
-#include <polyclipping/clipper.hpp>
+#include <clipper.hpp>
 
 namespace cura
 {

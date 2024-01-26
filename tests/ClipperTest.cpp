@@ -4,7 +4,7 @@
 #include "utils/Coord_t.h"
 #include <cmath>
 #include <gtest/gtest.h>
-#include <polyclipping/clipper.hpp>
+#include <clipper.hpp>
 
 // #define TEST_INFILL_SVG_OUTPUT
 #ifdef TEST_INFILL_SVG_OUTPUT

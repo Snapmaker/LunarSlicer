@@ -6,6 +6,7 @@
 #include <chrono>
 #include <memory>
 #include <string>
+#include "Stdio.h"
 
 #include <fmt/format.h>
 #include <fmt/ranges.h>
@@ -249,6 +250,13 @@ void Application::startThreadPool(int nworkers)
     }
     delete thread_pool;
     thread_pool = new ThreadPool(nthreads);
+
+//    cura::parallel_for<int>(1,
+//                               10,
+//                               [&](const int layer_idx)
+//                               {
+//                                   std::cout << layer_idx << std::endl;
+//                               });
 }
 
 } // namespace cura

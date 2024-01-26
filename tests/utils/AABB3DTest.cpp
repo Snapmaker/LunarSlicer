@@ -6,7 +6,7 @@
 #include "utils/Coord_t.h"
 #include "utils/polygon.h"
 #include <gtest/gtest.h>
-#include <polyclipping/clipper.hpp>
+#include <clipper.hpp>
 
 // NOLINTBEGIN(*-magic-numbers)
 namespace cura

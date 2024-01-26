@@ -9,7 +9,7 @@
 #include "utils/polygon.h"
 #include <filesystem>
 #include <gtest/gtest.h>
-#include <polyclipping/clipper.hpp>
+#include <clipper.hpp>
 #include <string>
 
 // To diagnose failing tests with visual images, uncomment the following line:
