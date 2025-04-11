@@ -40,7 +40,7 @@ jobs:
       - run: codesign -s ${{ secrets.CERTIFICATES_NAME }} ./output/LunarSlicer
 
       - name: Zip output
-        uses: thedoctor0/zip-release@v1
+        uses: thedoctor0/zip-release@master
         with:
           type: zip
           filename: LunarSlicer-mac-${{ matrix.arch }}.zip
@@ -72,7 +72,7 @@ jobs:
       - run: cp ./build/LunarSlicer.exe ./output/LunarSlicer.exe
 
       - name: Zip output
-        uses: thedoctor0/zip-release@v1
+        uses: thedoctor0/zip-release@master
         with:
           type: zip
           filename: LunarSlicer-win64.zip
@@ -126,7 +126,7 @@ jobs:
       - run: cp ./build/LunarSlicer ./output/LunarSlicer
 
       - name: Zip output
-        uses: thedoctor0/zip-release@v1
+        uses: thedoctor0/zip-release@master
         with:
           type: zip
           filename: LunarSlicer-linux-${{ matrix.arch }}.zip
