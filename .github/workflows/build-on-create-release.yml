@@ -39,7 +39,10 @@ jobs:
           p12-file-base64: ${{ secrets.CERTIFICATES_P12 }}
           p12-password: ${{ secrets.CERTIFICATES_P12_PASSWORD }}
 
-      - run: codesign -s ${{ secrets.CERTIFICATES_NAME }} ./output/LunarSlicer
+      - name: Sign macOS binary
+        run: |
+          # 使用单引号来处理证书名称中的特殊字符
+          codesign -s '${{ secrets.CERTIFICATES_NAME }}' ./output/LunarSlicer
 
       - name: Zip output
         uses: thedoctor0/zip-release@master
